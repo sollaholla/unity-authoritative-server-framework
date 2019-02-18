@@ -21,7 +21,7 @@ namespace AuthoritativeServer.Inputs
             transform.Translate(new Vector3(hori, 0, vert) * Time.fixedDeltaTime, Space.Self);
         }
 
-        protected override void UpdateSimulation(InputData input, InputData prediction, List<InputData> replay)
+        protected override bool UpdateSimulation(InputData input, InputData prediction)
         {
             Vector3 position = input.GetInput<Vector3Input>(0).Value;
 
@@ -33,15 +33,25 @@ namespace AuthoritativeServer.Inputs
 
                 float distance = Vector3.Distance(predictedPosition, position);
 
-                if (distance > ERR)
-                {
-                    Debug.Log("Do client replay...");
-                }
+                return distance < ERR;
             }
             else
             {
                 transform.position = position;
             }
+
+            return true;
+        }
+
+        protected override void CorrectSimulation(InputData input)
+        {
+            Vector3 position = input.GetInput<Vector3Input>(0).Value;
+
+            float eulerY = input.GetInput<FloatInput>(1).Value;
+
+            transform.position = position;
+
+            transform.rotation = Quaternion.Euler(0, eulerY, 0);
         }
     }
 }

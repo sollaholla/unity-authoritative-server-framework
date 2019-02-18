@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 using UnityEngine;
 
@@ -36,9 +37,26 @@ namespace AuthoritativeServer.Inputs
             Collect();
         }
 
+        /// <summary>
+        /// Execute the given input data.
+        /// </summary>
+        /// <param name="input"></param>
         protected abstract void ExecuteInput(InputData input);
 
-        protected abstract void UpdateSimulation(InputData input, InputData prediction, List<InputData> rewind);
+        /// <summary>
+        /// True if the simulation updated successfully. False if we need to do a replay.
+        /// </summary>
+        /// <param name="serverInput"></param>
+        /// <param name="prediction"></param>
+        /// <param name="replay"></param>
+        /// <returns></returns>
+        protected abstract bool UpdateSimulation(InputData serverInput, InputData prediction);
+
+        /// <summary>
+        /// Force the client to correct its simulation to match the server input.
+        /// </summary>
+        /// <param name="serverInput"></param>
+        protected abstract void CorrectSimulation(InputData serverInput);
 
         private void GetInput()
         {
@@ -99,8 +117,25 @@ namespace AuthoritativeServer.Inputs
 
                     m_Replay.RemoveAll(x => x.Time <= input.Time);
 
-                    UpdateSimulation(input, prediction, replay);
+                    if (!UpdateSimulation(input, prediction))
+                    {
+                        CorrectSimulation(input);
+
+                        Replay(replay);
+                    }
                 }
+            }
+        }
+
+        private void Replay(List<InputData> replay)
+        {
+            for (int i = 0; i < replay.Count; i++)
+            {
+                InputData replayPoint = replay[i];
+
+                ExecuteInput(replay[i]);
+
+                m_Predictions[i] = m_ServerStream.GetInput(replay[i].Time, false);
             }
         }
 
