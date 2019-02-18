@@ -11,7 +11,7 @@ namespace AuthoritativeServer.Inputs
 
         protected TInput m_ClientStream;
         protected TOutput m_ServerStream;
-        private List<InputData> m_Rewind = new List<InputData>();
+        private List<InputData> m_Replay = new List<InputData>();
         private List<InputData> m_Predictions = new List<InputData>();
 
         private bool m_ExecutedInput;
@@ -64,7 +64,7 @@ namespace AuthoritativeServer.Inputs
                 {
                     ExecuteInput(m_LastInput);
 
-                    m_Rewind.Add(m_LastInput);
+                    m_Replay.Add(m_LastInput);
 
                     InputData prediction = m_ServerStream.GetInput(m_LastInput.Time, false);
 
@@ -93,13 +93,13 @@ namespace AuthoritativeServer.Inputs
                 {
                     InputData prediction = m_Predictions.Find(x => x.Time == input.Time);
 
-                    List<InputData> rewind = m_Rewind.FindAll(x => x.Time > input.Time);
+                    List<InputData> replay = m_Replay.FindAll(x => x.Time > input.Time);
 
                     m_Predictions.RemoveAll(x => x.Time <= input.Time);
 
-                    m_Rewind.RemoveAll(x => x.Time <= input.Time);
+                    m_Replay.RemoveAll(x => x.Time <= input.Time);
 
-                    UpdateSimulation(input, prediction, rewind);
+                    UpdateSimulation(input, prediction, replay);
                 }
             }
         }
@@ -160,38 +160,30 @@ namespace AuthoritativeServer.Inputs
 
         private static void OnReceivedServerInput(NetworkWriter writer)
         {
-            short conn = writer.ReadInt16();
-
-            NetworkPlayerObject player = NetworkController.Instance.Scene.GetPlayer(conn);
-
-            if (player == null)
-                return;
-
-            GameObject playerObj = player.GameObject;
-
-            byte[] data = writer.ReadBytes();
-
-            AuthoritativeInput<TInput, TOutput> comp = playerObj.GetComponent<AuthoritativeInput<TInput, TOutput>>();
-
-            comp.m_ServerStream.Deserialize(data);
+            GetInputComponentFromMessage(writer, out byte[] data)?.m_ServerStream.Deserialize(data);
         }
 
         private static void OnReceivedClientInput(NetworkWriter writer)
+        {
+            GetInputComponentFromMessage(writer, out byte[] data)?.m_ClientStream.Deserialize(data);
+        }
+
+        private static AuthoritativeInput<TInput, TOutput> GetInputComponentFromMessage(NetworkWriter writer, out byte[] data)
         {
             short conn = writer.ReadInt16();
 
             NetworkPlayerObject player = NetworkController.Instance.Scene.GetPlayer(conn);
 
+            data = null;
+
             if (player == null)
-                return;
+                return null;
 
             GameObject playerObj = player.GameObject;
 
-            byte[] data = writer.ReadBytes();
+            data = writer.ReadBytes();
 
-            AuthoritativeInput<TInput, TOutput> comp = playerObj.GetComponent<AuthoritativeInput<TInput, TOutput>>();
-
-            comp.m_ClientStream.Deserialize(data);
+            return playerObj.GetComponent<AuthoritativeInput<TInput, TOutput>>();
         }
     }
 }

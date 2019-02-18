@@ -21,7 +21,7 @@ namespace AuthoritativeServer.Inputs
             transform.Translate(new Vector3(hori, 0, vert) * Time.fixedDeltaTime, Space.Self);
         }
 
-        protected override void UpdateSimulation(InputData input, InputData prediction, List<InputData> rewind)
+        protected override void UpdateSimulation(InputData input, InputData prediction, List<InputData> replay)
         {
             Vector3 position = input.GetInput<Vector3Input>(0).Value;
 

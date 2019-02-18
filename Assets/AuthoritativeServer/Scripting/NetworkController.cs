@@ -24,13 +24,6 @@ namespace AuthoritativeServer
         public delegate void NetworkReceiveDelegate(NetworkWriter writer);
 
         /// <summary>
-        /// Stream handlers are written on the client and broadcast to all connections (including server).
-        /// </summary>
-        /// <param name="writer"></param>
-        /// <param name="isWriting"></param>
-        public delegate void NetworkStreamDelegate(NetworkWriter writer, bool isWriting, ref byte channel);
-
-        /// <summary>
         /// The message ID used for callbacks from the server when a remote client connects.
         /// </summary>
         public const short RemoteConnectMsg = 0;
