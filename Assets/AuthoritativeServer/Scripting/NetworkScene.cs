@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-
+using System.Linq;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
@@ -18,15 +18,21 @@ namespace AuthoritativeServer
         public const short InstantiateMsg = 3;
 
         /// <summary>
+        /// The message ID used for network destroys.
+        /// </summary>
+        public const short DestroyMsg = 4;
+
+        /// <summary>
         /// The message ID used for player creation.
         /// </summary>
-        public const short CreatePlayerMsg = 4;
+        public const short CreatePlayerMsg = 5;
 
         #region PRIVATE
 
         private Dictionary<int, NetworkWriter> m_BufferedPlayersCreations;
         private List<NetworkConnection> m_BufferedPlayerConnections;
         private Dictionary<int, NetworkPlayerObject> m_PlayerObjectCache;
+        private Dictionary<GameObject, GameObject> m_SpawnedObjectCache;
 
         #endregion
 
@@ -104,6 +110,7 @@ namespace AuthoritativeServer
         {
             NetworkController.Instance.RegisterReceiveHandler(InstantiateMsg, OnNetworkInstantiate);
             NetworkController.Instance.RegisterReceiveHandler(CreatePlayerMsg, OnNetworkSpawnPlayer);
+            NetworkController.Instance.RegisterReceiveHandler(DestroyMsg, OnNetworkDestroy);
         }
 
         private bool ServerValidateInstantiate(GameObject obj)
@@ -119,6 +126,30 @@ namespace AuthoritativeServer
             }
 
             if (!obj.GetComponent<NetworkIdentity>())
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool ServerValidateDestroy(GameObject obj, out NetworkIdentity identity)
+        {
+            identity = null;
+
+            if (!IsServer)
+            {
+                return false;
+            }
+
+            identity = obj.GetComponent<NetworkIdentity>();
+
+            if (identity == null)
+            {
+                return false;
+            }
+
+            if (!NetworkIdentityManager.Instance.Exists(identity.InstanceID))
             {
                 return false;
             }
@@ -150,6 +181,19 @@ namespace AuthoritativeServer
             m_BufferedPlayerConnections?.Remove(conn);
         }
 
+        private void DebufferObjectSpawns(NetworkConnection conn)
+        {
+            foreach (GameObject obj in SpawnedObjects)
+            {
+                if (PlayerObjects.Any(x => x.GameObject == obj))
+                    continue;
+
+                NetworkWriter writer = GetInstantiationWriter(m_SpawnedObjectCache[obj], obj, obj.GetComponent<NetworkIdentity>());
+
+                NetworkController.Instance.Send(conn.ConnectionID, 0, InstantiateMsg, writer.ToArray());
+            }
+        }
+
         private GameObject NetworkCreatePlayer(int connectionID, Vector3 position, Vector3 eulerAngles)
         {
             if (!ServerValidateInstantiate(Settings.m_PlayerObject))
@@ -168,7 +212,9 @@ namespace AuthoritativeServer
                 m_PlayerObjectCache = new Dictionary<int, NetworkPlayerObject>();
 
             NetworkPlayerObject netPlayer = new NetworkPlayerObject(connectionID, inst);
+
             PlayerObjects.Add(netPlayer);
+
             m_PlayerObjectCache[connectionID] = netPlayer;
 
             return inst;
@@ -185,7 +231,12 @@ namespace AuthoritativeServer
             if (SpawnedObjects == null)
                 SpawnedObjects = new List<GameObject>();
 
+            if (m_SpawnedObjectCache == null)
+                m_SpawnedObjectCache = new Dictionary<GameObject, GameObject>();
+
             SpawnedObjects.Add(inst);
+
+            m_SpawnedObjectCache[inst] = prefab;
 
             return inst;
         }
@@ -201,7 +252,12 @@ namespace AuthoritativeServer
             if (SpawnedObjects == null)
                 SpawnedObjects = new List<GameObject>();
 
+            if (m_SpawnedObjectCache == null)
+                m_SpawnedObjectCache = new Dictionary<GameObject, GameObject>();
+
             SpawnedObjects.Add(inst);
+
+            m_SpawnedObjectCache[inst] = prefab;
         }
 
         private NetworkWriter GetCreatePlayerWriter(int connectionID, GameObject instance, NetworkIdentity identity)
@@ -239,6 +295,27 @@ namespace AuthoritativeServer
             rotation = Quaternion.Euler(message.ReadVector3());
 
             prefab = Settings.m_RegisteredObjects[objectID];
+        }
+
+        private void OnNetworkDestroy(NetworkWriter writer)
+        {
+            if (IsServer)
+                return;
+
+            int instanceID = writer.ReadInt16();
+
+            if (!NetworkIdentityManager.Instance.Exists(instanceID))
+            {
+                return;
+            }
+
+            NetworkIdentity identity = NetworkIdentityManager.Instance.Get(instanceID);
+
+            SpawnedObjects.Remove(identity.gameObject);
+
+            m_SpawnedObjectCache.Remove(identity.gameObject);
+
+            Object.Destroy(identity.gameObject);
         }
 
         private void OnNetworkInstantiate(NetworkWriter writer)
@@ -296,7 +373,9 @@ namespace AuthoritativeServer
                 m_PlayerObjectCache = new Dictionary<int, NetworkPlayerObject>();
 
             NetworkPlayerObject netPlayer = new NetworkPlayerObject(connectionID, inst);
+
             PlayerObjects.Add(netPlayer);
+
             m_PlayerObjectCache[connectionID] = netPlayer;
         }
 
@@ -318,6 +397,8 @@ namespace AuthoritativeServer
             GameObject player = NetworkCreatePlayer(conn.ConnectionID, Vector3.zero, Vector3.zero);
 
             NetworkController.Instance.GetConnection(conn.ConnectionID).SetConnectionObject(player);
+
+            DebufferObjectSpawns(conn);
         }
 
         private void OnDestroyPlayer(NetworkConnection conn)
@@ -372,21 +453,42 @@ namespace AuthoritativeServer
         /// Instantiate a registered network gameObject on the server.
         /// </summary>
         /// <param name="registeredGameObject">The registered object.</param>
-        /// <param name="position">The position of the object.</param>
-        /// <param name="eulerAngles">The rotation of the object.</param>
+        /// <param name="position">The position of the object spawn.</param>
+        /// <param name="rotation">The rotation of the object spawn.</param>
         /// <returns>The instantiated gameObject.</returns>
-        public GameObject NetworkInstantiate(GameObject registeredGameObject, Vector3 position, Vector3 eulerAngles)
+        public GameObject Create(GameObject registeredGameObject, Vector3 position, Quaternion rotation)
         {
             if (!ServerValidateInstantiate(registeredGameObject))
                 return null;
 
-            CreateRegisteredObject(registeredGameObject, position, eulerAngles, null, out GameObject inst, out NetworkIdentity instIdentity);
+            CreateRegisteredObject(registeredGameObject, position, rotation.eulerAngles, null, out GameObject inst, out NetworkIdentity instIdentity);
 
             NetworkWriter info = GetInstantiationWriter(registeredGameObject, inst, instIdentity);
 
             NetworkController.Instance.SendToAll(info.ToArray(), InstantiateMsg);
 
             return inst;
+        }
+
+        /// <summary>
+        /// Destroy a networked object.
+        /// </summary>
+        /// <param name="gameObject"></param>
+        public void Destroy(GameObject gameObject)
+        {
+            if (!IsServer)
+                return;
+
+            if (!ServerValidateDestroy(gameObject, out NetworkIdentity identity))
+                return;
+
+            NetworkController.Instance.SendToAll(BitConverter.GetBytes((short)identity.InstanceID), DestroyMsg);
+
+            Object.Destroy(gameObject);
+
+            SpawnedObjects.Remove(identity.gameObject);
+
+            m_SpawnedObjectCache.Remove(identity.gameObject);
         }
 
         /// <summary>

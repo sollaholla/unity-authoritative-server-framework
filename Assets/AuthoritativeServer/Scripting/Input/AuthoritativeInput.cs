@@ -133,9 +133,9 @@ namespace AuthoritativeServer.Inputs
             {
                 InputData replayPoint = replay[i];
 
-                ExecuteInput(replay[i]);
+                ExecuteInput(replayPoint);
 
-                m_Predictions[i] = m_ServerStream.GetInput(replay[i].Time, false);
+                m_Predictions[i] = m_ServerStream.GetInput(replayPoint.Time, false);
             }
         }
 
@@ -206,6 +206,11 @@ namespace AuthoritativeServer.Inputs
         private static AuthoritativeInput<TInput, TOutput> GetInputComponentFromMessage(NetworkWriter writer, out byte[] data)
         {
             short conn = writer.ReadInt16();
+
+            if (conn == 1)
+            {
+
+            }
 
             NetworkPlayerObject player = NetworkController.Instance.Scene.GetPlayer(conn);
 

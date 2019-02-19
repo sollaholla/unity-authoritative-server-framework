@@ -142,6 +142,21 @@ namespace AuthoritativeServer
             return m_NetworkIdentities.ContainsKey(instanceID) && m_NetworkIdentities[instanceID] != null;
         }
 
+        /// <summary>
+        /// Get the <see cref="NetworkIdentity"/> with the specified instance ID.
+        /// </summary>
+        /// <param name="instanceID"></param>
+        /// <returns></returns>
+        public NetworkIdentity Get(int instanceID)
+        {
+            if (m_NetworkIdentities.TryGetValue(instanceID, out NetworkIdentity value))
+            {
+                return value;
+            }
+
+            return null;
+        }
+
         #endregion
     }
 }

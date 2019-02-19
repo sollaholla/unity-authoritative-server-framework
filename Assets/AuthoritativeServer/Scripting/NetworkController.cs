@@ -170,6 +170,11 @@ namespace AuthoritativeServer
         /// </summary>
         public NetworkStats NetworkStats { get; private set; }
 
+        /// <summary>
+        /// The RPC manager.
+        /// </summary>
+        public NetworkRemoteProcedures RemoteProcedures { get { return m_Settings.m_RPCManager; } }
+
         #endregion
 
         #region UNITY
@@ -327,13 +332,13 @@ namespace AuthoritativeServer
 
         private void Receive()
         {
-            if (!IsStarted)
-                return;
-
             NetworkEventType type;
 
             do
             {
+                if (!IsStarted)
+                    return;
+
                 type = NetworkTransport.Receive(
                     out int hostID,
                     out int connectionID,
@@ -342,12 +347,6 @@ namespace AuthoritativeServer
                     m_MessageSize,
                     out int receivedSize,
                     out byte error);
-
-                if ((NetworkError)error != NetworkError.Ok)
-                {
-                    DebugLogError("Receive Error: " + (NetworkError)error);
-                    continue;
-                }
 
                 switch (type)
                 {
@@ -360,6 +359,12 @@ namespace AuthoritativeServer
                     case NetworkEventType.DisconnectEvent:
                         OnClientDisconnected(connectionID);
                         break;
+                }
+
+                if ((NetworkError)error != NetworkError.Ok)
+                {
+                    DebugLogError("Receive Error: " + (NetworkError)error);
+                    continue;
                 }
             }
             while (type != NetworkEventType.Nothing);
@@ -700,6 +705,20 @@ namespace AuthoritativeServer
 
             foreach (NetworkConnection connection in m_Connections.Values)
             {
+                connection.Send(m_ReliableChannel, messageID, data);
+            }
+        }
+
+        public void SendToAllExcluding(byte[] data, short messageID, int connectionToIgnore)
+        {
+            if (!IsServer)
+                return;
+
+            foreach (NetworkConnection connection in m_Connections.Values)
+            {
+                if (connection.ConnectionID == connectionToIgnore)
+                    continue;
+
                 connection.Send(m_ReliableChannel, messageID, data);
             }
         }

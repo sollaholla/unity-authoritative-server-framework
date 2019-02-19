@@ -1,4 +1,6 @@
-﻿using UnityEngine;
+﻿using System;
+using System.Collections.Generic;
+using UnityEngine;
 
 namespace AuthoritativeServer
 {
@@ -8,6 +10,8 @@ namespace AuthoritativeServer
         #region FIELDS
 
         private NetworkIdentity m_Identity;
+
+        private Dictionary<string, Action<object[]>> m_RPCs;
 
         #endregion
 
@@ -61,6 +65,35 @@ namespace AuthoritativeServer
         /// </summary>
         public virtual void OnOwnerInitialize()
         { }
+
+        /// <summary>
+        /// Register an RPC call with the given name.
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="rpcMethod"></param>
+        public void RegisterRPC(string name, Action<object[]> rpcMethod)
+        {
+            if (m_RPCs == null)
+                m_RPCs = new Dictionary<string, Action<object[]>>();
+
+            m_RPCs[name] = rpcMethod;
+        }
+
+        /// <summary>
+        /// Invokes an RPC on this object with the given name.
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="arguments"></param>
+        public void InvokeRPC(string name, object[] arguments)
+        {
+            if (m_RPCs == null)
+                return;
+
+            if (m_RPCs.TryGetValue(name, out var value))
+            {
+                value.Invoke(arguments);
+            }
+        }
 
         #endregion
     }
