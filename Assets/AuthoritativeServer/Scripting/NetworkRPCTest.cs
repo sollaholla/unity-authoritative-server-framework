@@ -1,8 +1,6 @@
 ﻿using AuthoritativeServer.Attributes;
 using RPC = AuthoritativeServer.Attributes;
 
-using System;
-
 using UnityEngine;
 using Random = UnityEngine.Random;
 
@@ -14,7 +12,7 @@ namespace AuthoritativeServer
 
         private void Awake()
         {
-            RegisterRPC(nameof(SpawnCube), (args) => SpawnCube((Vector3)args[0], (float)args[1]));
+            RegisterRPC(nameof(SpawnPrefab), (args) => SpawnPrefab((Vector3)args[0], (float)args[1]));
 
             RegisterRPC(nameof(ServerHello), (args) => ServerHello());
         }
@@ -27,13 +25,13 @@ namespace AuthoritativeServer
                 {
                     Vector3 pos = new Vector3(Random.Range(-5, 5), Random.Range(-5, 5), Random.Range(-5, 5));
 
-                    NetworkController.Instance.RemoteProcedures.Call(Identity, RPCType.ServerOnly, nameof(SpawnCube), pos, 90f);
+                    NetworkController.Instance.RemoteProcedures.Call(Identity, RPCType.ServerOnly, nameof(SpawnPrefab), pos, 90f);
                 }
             }
         }
 
         [RPC]
-        private void SpawnCube(Vector3 position, float rotation)
+        private void SpawnPrefab(Vector3 position, float rotation)
         {
             NetworkController.Instance.Scene.Create(m_Prefab, position, Quaternion.Euler(0, rotation, 0));
 

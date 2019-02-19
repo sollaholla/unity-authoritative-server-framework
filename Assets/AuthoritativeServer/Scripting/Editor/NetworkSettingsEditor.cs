@@ -76,13 +76,19 @@ namespace AuthoritativeServer.Editor
             {
                 DrawPropertiesExcluding(serializedObject, "m_Script", nameof(NetworkSettings.m_PlayerObject), nameof(NetworkSettings.m_RegisteredObjects));
 
+                EditorGUILayout.Space();
+
+                EditorGUILayout.LabelField("Objects", EditorStyles.boldLabel);
+
                 UpdatePlayerObject();
 
                 m_RegisteredObjectsList.DoLayoutList();
 
                 if (check.changed)
-                {
+                { 
                     serializedObject.ApplyModifiedProperties();
+
+                    EditorUtility.SetDirty(target);
                 }
             }
         }

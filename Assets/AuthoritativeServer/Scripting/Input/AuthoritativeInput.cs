@@ -207,11 +207,6 @@ namespace AuthoritativeServer.Inputs
         {
             short conn = writer.ReadInt16();
 
-            if (conn == 1)
-            {
-
-            }
-
             NetworkPlayerObject player = NetworkController.Instance.Scene.GetPlayer(conn);
 
             data = null;

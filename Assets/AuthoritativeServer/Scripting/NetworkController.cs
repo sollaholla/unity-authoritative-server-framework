@@ -171,9 +171,9 @@ namespace AuthoritativeServer
         public NetworkStats NetworkStats { get; private set; }
 
         /// <summary>
-        /// The RPC manager.
+        /// The remote procedure controller which handles all remote procedure calls.
         /// </summary>
-        public NetworkRemoteProcedures RemoteProcedures { get { return m_Settings.m_RPCManager; } }
+        public NetworkRemoteProcedures RemoteProcedures { get { return m_Settings.m_RemoteProcedures; } }
 
         #endregion
 

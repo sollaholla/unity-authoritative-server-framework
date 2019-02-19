@@ -58,6 +58,9 @@ namespace AuthoritativeServer
         }
     }
 
+    /// <summary>
+    /// A class that handles remote procedure calls for server and clients.
+    /// </summary>
     [System.Serializable]
     public class NetworkRemoteProcedures
     {
@@ -112,10 +115,9 @@ namespace AuthoritativeServer
                             {
                                 RPCMethodInfo rpcMethod = new RPCMethodInfo(type.Name, method.Name, method.GetParameters()?.Length ?? 0);
                                 m_Methods.Add(rpcMethod);
+                                break;
                             }
                         }
-
-                        // TODO: Client RPC
                     }
                 }
             }

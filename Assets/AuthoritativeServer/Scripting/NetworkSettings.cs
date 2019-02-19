@@ -31,6 +31,6 @@ namespace AuthoritativeServer
         public GameObject m_PlayerObject;
         public List<GameObject> m_RegisteredObjects;
 
-        public NetworkRemoteProcedures m_RPCManager;
+        [HideInInspector] public NetworkRemoteProcedures m_RemoteProcedures;
     }
 }

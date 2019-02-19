@@ -28,9 +28,11 @@ MonoBehaviour:
   m_RegisteredObjects:
   - {fileID: 15, guid: b535aedf90154294c8897c24370fc299, type: 3}
   - {fileID: 3538145306203583902, guid: 35378a3282c440d439fed070dfffea1d, type: 3}
-  m_RPCManager:
+  m_RemoteProcedures:
     m_Methods:
     - m_TypeName: NetworkRPCTest
-      m_MethodName: SpawnCube
-      m_RPCType: 0
+      m_MethodName: SpawnPrefab
       m_ArgumentCount: 2
+    - m_TypeName: NetworkRPCTest
+      m_MethodName: ServerHello
+      m_ArgumentCount: 0

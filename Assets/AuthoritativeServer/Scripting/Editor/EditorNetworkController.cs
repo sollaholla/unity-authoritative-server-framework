@@ -27,7 +27,9 @@ namespace AuthoritativeServer.Editor
 
                 NetworkSettings settings = AssetDatabase.LoadAssetAtPath<NetworkSettings>(path);
 
-                settings.m_RPCManager.InitializeRPCs();
+                settings.m_RemoteProcedures.InitializeRPCs();
+
+                EditorUtility.SetDirty(settings);
             }
         }
 

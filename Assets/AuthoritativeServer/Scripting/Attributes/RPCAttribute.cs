@@ -3,7 +3,7 @@
 namespace AuthoritativeServer.Attributes
 {
     /// <summary>
-    /// An RPC that will be executed on all clients.
+    /// A method attribute to identify remote procedure calls.
     /// </summary>
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
     public class RPCAttribute : Attribute { }
