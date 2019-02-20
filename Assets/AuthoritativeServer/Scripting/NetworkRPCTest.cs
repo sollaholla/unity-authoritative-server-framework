@@ -1,5 +1,4 @@
 ﻿using AuthoritativeServer.Attributes;
-using RPC = AuthoritativeServer.Attributes;
 
 using UnityEngine;
 using Random = UnityEngine.Random;
@@ -34,7 +33,7 @@ namespace AuthoritativeServer
             }
         }
 
-        [RPC]
+        [NetworkRPC]
         private void SpawnPrefab(Vector3 position, float rotation)
         {
             NetworkController.Instance.Scene.Create(m_Prefab, position, Quaternion.Euler(0, rotation, 0));
@@ -42,13 +41,13 @@ namespace AuthoritativeServer
             NetworkController.Instance.RemoteProcedures.Call(Identity, RPCType.AllBuffered, nameof(BufferedServerHello));
         }
 
-        [RPC]
+        [NetworkRPC]
         private void BufferedServerHello()
         {
             Debug.LogError("Hello world!");
         }
 
-        [RPC]
+        [NetworkRPC]
         private void SupGuys(int connection)
         {
             Debug.LogError(connection + " said what's up to us.");

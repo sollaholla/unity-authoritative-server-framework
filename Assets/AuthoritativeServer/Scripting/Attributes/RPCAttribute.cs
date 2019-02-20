@@ -6,5 +6,5 @@ namespace AuthoritativeServer.Attributes
     /// A method attribute to identify remote procedure calls.
     /// </summary>
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
-    public class RPCAttribute : Attribute { }
+    public class NetworkRPCAttribute : Attribute { }
 }

@@ -116,7 +116,7 @@ namespace AuthoritativeServer
 
                         foreach (Attribute att in attributes)
                         {
-                            if (att is RPCAttribute rpc)
+                            if (att is NetworkRPCAttributeAttribute rpc)
                             {
                                 RPCMethodInfo rpcMethod = new RPCMethodInfo(type.Name, method.Name, method.GetParameters()?.Length ?? 0);
                                 m_Methods.Add(rpcMethod);
