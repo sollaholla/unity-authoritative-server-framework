@@ -12,10 +12,9 @@ namespace AuthoritativeServer
         private void Awake()
         {
             RegisterRPC(nameof(SpawnPrefab), (args) => SpawnPrefab((Vector3)args[0], (float)args[1]));
-
             RegisterRPC(nameof(BufferedServerHello), (args) => BufferedServerHello());
-
             RegisterRPC(nameof(SupGuys), (args) => SupGuys((int)args[0]));
+            RegisterRPC(nameof(ServerSays), (args) => ServerSays((NetworkConnection)args[0]));
         }
 
         private void Update()
@@ -39,6 +38,8 @@ namespace AuthoritativeServer
             NetworkController.Instance.Scene.Create(m_Prefab, position, Quaternion.Euler(0, rotation, 0));
 
             NetworkController.Instance.RemoteProcedures.Call(Identity, RPCType.AllBuffered, nameof(BufferedServerHello));
+
+            NetworkController.Instance.RemoteProcedures.Call(Identity, RPCType.Target, nameof(ServerSays), Identity.OwnerConnection);
         }
 
         [NetworkRPC]
@@ -51,6 +52,12 @@ namespace AuthoritativeServer
         private void SupGuys(int connection)
         {
             Debug.LogError(connection + " said what's up to us.");
+        }
+
+        [NetworkRPC]
+        private void ServerSays(NetworkConnection connection)
+        {
+            Debug.LogError("Server says he got our message!");
         }
     }
 }

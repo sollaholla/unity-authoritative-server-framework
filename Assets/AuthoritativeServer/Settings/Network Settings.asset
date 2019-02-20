@@ -39,3 +39,6 @@ MonoBehaviour:
     - m_TypeName: NetworkRPCTest
       m_MethodName: SupGuys
       m_ArgumentCount: 1
+    - m_TypeName: NetworkRPCTest
+      m_MethodName: ServerSays
+      m_ArgumentCount: 1

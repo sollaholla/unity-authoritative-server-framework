@@ -26,17 +26,17 @@ namespace AuthoritativeServer
         /// <summary>
         /// The message ID used for callbacks from the server when a remote client connects.
         /// </summary>
-        public const short RemoteConnectMsg = 0;
+        public const short RemoteConnectMsg = -1;
 
         /// <summary>
         /// The message ID used for callbacks from the server when a remote client disconnects.
         /// </summary>
-        public const short RemoteDisconnectMsg = 1;
+        public const short RemoteDisconnectMsg = -2;
 
         /// <summary>
         /// The message ID used for callbacks when a client sends a "received connection" message from the server.
         /// </summary>
-        public const short ClientReadyMsg = 2;
+        public const short ClientReadyMsg = -3;
 
         #region EVENTS
 

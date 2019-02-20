@@ -15,17 +15,17 @@ namespace AuthoritativeServer
         /// <summary>
         /// The message ID used for network instantiation.
         /// </summary>
-        public const short InstantiateMsg = 3;
+        public const short InstantiateMsg = -4;
 
         /// <summary>
         /// The message ID used for network destroys.
         /// </summary>
-        public const short DestroyMsg = 4;
+        public const short DestroyMsg = -5;
 
         /// <summary>
         /// The message ID used for player creation.
         /// </summary>
-        public const short CreatePlayerMsg = 5;
+        public const short CreatePlayerMsg = -6;
 
         /// <summary>
         /// An event called prior to a networked object being destroyed.

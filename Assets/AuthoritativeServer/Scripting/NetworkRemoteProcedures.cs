@@ -1,8 +1,9 @@
 ﻿using AuthoritativeServer.Attributes;
+
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
+
 using UnityEngine;
 
 namespace AuthoritativeServer
@@ -28,7 +29,11 @@ namespace AuthoritativeServer
         /// <summary>
         /// An RPC that will be executed on other clients, and late joiners will receive it.
         /// </summary>
-        OthersBuffered
+        OthersBuffered,
+        /// <summary>
+        /// An RPC that will be executed on a specific client, first argument of the RPC must be the connection.
+        /// </summary>
+        Target
     }
 
     public enum RPCParameter : byte
@@ -40,7 +45,8 @@ namespace AuthoritativeServer
         String,
         Vector3,
         Vector2,
-        Quaternion
+        Quaternion,
+        Connection
     }
 
     [System.Serializable]
@@ -67,7 +73,7 @@ namespace AuthoritativeServer
         /// <summary>
         /// The message ID used for executing a server only RPC.
         /// </summary>
-        public const short RPCMsg = 6;
+        public const short RPCMsg = -7;
 
         #region FIELDS
 
@@ -116,7 +122,7 @@ namespace AuthoritativeServer
 
                         foreach (Attribute att in attributes)
                         {
-                            if (att is NetworkRPCAttributeAttribute rpc)
+                            if (att is NetworkRPCAttribute rpc)
                             {
                                 RPCMethodInfo rpcMethod = new RPCMethodInfo(type.Name, method.Name, method.GetParameters()?.Length ?? 0);
                                 m_Methods.Add(rpcMethod);
@@ -278,6 +284,10 @@ namespace AuthoritativeServer
                         float w = writer.ReadSingle();
                         args.Add(new Quaternion(xyz.x, xyz.y, xyz.z, w));
                         break;
+                    case RPCParameter.Connection:
+                        NetworkConnection connection = new NetworkConnection(writer.ReadInt16());
+                        args.Add(connection);
+                        break;
                 }
             }
             arguments = args.ToArray();
@@ -333,6 +343,11 @@ namespace AuthoritativeServer
                         writer.Write(new Vector3(q.x, q.y, q.z));
                         writer.Write(q.w);
                     }
+                    else if (arg is NetworkConnection c)
+                    {
+                        writer.Write((byte)RPCParameter.Connection);
+                        writer.Write((short)c.ConnectionID);
+                    }
                 }
             }
 
@@ -366,6 +381,9 @@ namespace AuthoritativeServer
 
             if (!NetworkController.Instance.IsServer)
             {
+                if (type == RPCType.Target)
+                    throw new InvalidOperationException("You cannot send a targetted RPC because you are not the server.");
+
                 if (identity.OwnerConnection == null)
                     throw new InvalidOperationException("The network identity has no owner and cannot execute any RPCs");
 
@@ -433,8 +451,18 @@ namespace AuthoritativeServer
                             NetworkController.Instance.SendToAll(0, RPCMsg, data);
                         }
                         else NetworkController.Instance.Send(connectionID, 0, RPCMsg, data);
+                        break;
                     }
-                    break;
+                case RPCType.Target:
+                    {
+                        if (parameters.Length > 0)
+                        {
+                            NetworkConnection connection = (NetworkConnection)parameters[0];
+                            if (connection != null)
+                                connection.Send(0, RPCMsg, data);
+                        }
+                        break;
+                    }
             }
         }
 
