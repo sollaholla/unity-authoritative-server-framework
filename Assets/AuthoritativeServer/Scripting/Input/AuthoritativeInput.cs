@@ -160,7 +160,7 @@ namespace AuthoritativeServer.Inputs
 
                 if (writer != null)
                 {
-                    NetworkController.Instance.SendToAll(writer.ToArray(), ServerSendMsg);
+                    NetworkController.Instance.SendToAll(0, ServerSendMsg, writer.ToArray());
                 }
             }
         }

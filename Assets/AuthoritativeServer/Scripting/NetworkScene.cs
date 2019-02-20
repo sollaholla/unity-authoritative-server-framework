@@ -27,6 +27,16 @@ namespace AuthoritativeServer
         /// </summary>
         public const short CreatePlayerMsg = 5;
 
+        /// <summary>
+        /// An event called prior to a networked object being destroyed.
+        /// </summary>
+        public static event Action<NetworkIdentity> DestroyedGameObject;
+
+        /// <summary>
+        /// An event called after create a networked object.
+        /// </summary>
+        public static event Action<NetworkIdentity> CreatedGameObject;
+
         #region PRIVATE
 
         private Dictionary<int, NetworkWriter> m_BufferedPlayersCreations;
@@ -203,7 +213,7 @@ namespace AuthoritativeServer
 
             NetworkWriter writer = GetCreatePlayerWriter(connectionID, inst, instIdentity);
 
-            NetworkController.Instance.SendToAll(writer.ToArray(), CreatePlayerMsg);
+            NetworkController.Instance.SendToAll(0, CreatePlayerMsg, writer.ToArray());
 
             if (PlayerObjects == null)
                 PlayerObjects = new List<NetworkPlayerObject>();
@@ -228,6 +238,8 @@ namespace AuthoritativeServer
 
             NetworkIdentityManager.Instance.RegisterNetworkIdentityManually(netIdentity, conn, netID);
 
+            CreatedGameObject?.Invoke(netIdentity);
+
             if (SpawnedObjects == null)
                 SpawnedObjects = new List<GameObject>();
 
@@ -248,6 +260,8 @@ namespace AuthoritativeServer
             instIdentity = inst.GetComponent<NetworkIdentity>();
 
             NetworkIdentityManager.Instance.RegisterNetworkIdentity(instIdentity, conn);
+
+            CreatedGameObject?.Invoke(instIdentity);
 
             if (SpawnedObjects == null)
                 SpawnedObjects = new List<GameObject>();
@@ -314,6 +328,8 @@ namespace AuthoritativeServer
             SpawnedObjects.Remove(identity.gameObject);
 
             m_SpawnedObjectCache.Remove(identity.gameObject);
+
+            DestroyedGameObject?.Invoke(identity);
 
             Object.Destroy(identity.gameObject);
         }
@@ -412,6 +428,8 @@ namespace AuthoritativeServer
                     SpawnedObjects.Remove(playerObject.GameObject);
                 }
 
+                DestroyedGameObject?.Invoke(playerObject.NetworkIdentity);
+
                 Object.Destroy(playerObject.GameObject);
 
                 PlayerObjects.Remove(playerObject);
@@ -465,7 +483,7 @@ namespace AuthoritativeServer
 
             NetworkWriter info = GetInstantiationWriter(registeredGameObject, inst, instIdentity);
 
-            NetworkController.Instance.SendToAll(info.ToArray(), InstantiateMsg);
+            NetworkController.Instance.SendToAll(0, InstantiateMsg, info.ToArray());
 
             return inst;
         }
@@ -482,7 +500,9 @@ namespace AuthoritativeServer
             if (!ServerValidateDestroy(gameObject, out NetworkIdentity identity))
                 return;
 
-            NetworkController.Instance.SendToAll(BitConverter.GetBytes((short)identity.InstanceID), DestroyMsg);
+            NetworkController.Instance.SendToAll(0, DestroyMsg, BitConverter.GetBytes((short)identity.InstanceID));
+
+            DestroyedGameObject?.Invoke(identity);
 
             Object.Destroy(gameObject);
 

@@ -698,14 +698,14 @@ namespace AuthoritativeServer
         /// Send a message to all clients from the server.
         /// </summary>
         /// <param name="data"></param>
-        public void SendToAll(byte[] data, short messageID)
+        public void SendToAll(byte channelID, short messageID, byte[] data)
         {
             if (!IsServer)
                 return;
 
             foreach (NetworkConnection connection in m_Connections.Values)
             {
-                connection.Send(m_ReliableChannel, messageID, data);
+                connection.Send(channelID, messageID, data);
             }
         }
 
@@ -756,6 +756,7 @@ namespace AuthoritativeServer
             m_ReceiveHandlers?.Clear();
             m_Connections?.Clear();
             Scene?.Clear();
+            RemoteProcedures?.ClearBuffer();
             SceneManager.LoadScene(m_Settings.m_OfflineScene.m_SceneName);
         }
 

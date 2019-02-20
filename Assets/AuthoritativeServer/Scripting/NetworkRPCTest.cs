@@ -14,7 +14,9 @@ namespace AuthoritativeServer
         {
             RegisterRPC(nameof(SpawnPrefab), (args) => SpawnPrefab((Vector3)args[0], (float)args[1]));
 
-            RegisterRPC(nameof(ServerHello), (args) => ServerHello());
+            RegisterRPC(nameof(BufferedServerHello), (args) => BufferedServerHello());
+
+            RegisterRPC(nameof(SupGuys), (args) => SupGuys((int)args[0]));
         }
 
         private void Update()
@@ -26,6 +28,8 @@ namespace AuthoritativeServer
                     Vector3 pos = new Vector3(Random.Range(-5, 5), Random.Range(-5, 5), Random.Range(-5, 5));
 
                     NetworkController.Instance.RemoteProcedures.Call(Identity, RPCType.ServerOnly, nameof(SpawnPrefab), pos, 90f);
+
+                    NetworkController.Instance.RemoteProcedures.Call(Identity, RPCType.OthersBuffered, nameof(SupGuys), Identity.OwnerConnection.ConnectionID);
                 }
             }
         }
@@ -35,13 +39,19 @@ namespace AuthoritativeServer
         {
             NetworkController.Instance.Scene.Create(m_Prefab, position, Quaternion.Euler(0, rotation, 0));
 
-            NetworkController.Instance.RemoteProcedures.Call(Identity, RPCType.All, nameof(ServerHello));
+            NetworkController.Instance.RemoteProcedures.Call(Identity, RPCType.AllBuffered, nameof(BufferedServerHello));
         }
 
         [RPC]
-        private void ServerHello()
+        private void BufferedServerHello()
         {
             Debug.LogError("Hello world!");
+        }
+
+        [RPC]
+        private void SupGuys(int connection)
+        {
+            Debug.LogError(connection + " said what's up to us.");
         }
     }
 }

@@ -74,11 +74,16 @@ namespace AuthoritativeServer
         [SerializeField]
         private List<RPCMethodInfo> m_Methods;
 
+        private Dictionary<int, HashSet<NetworkWriter>> m_BufferedMessages;
+
         #endregion
 
         public NetworkRemoteProcedures()
         {
             NetworkController.InitializeHandlers += OnInitializeHandlers;
+            NetworkController.ServerClientConnected += OnClientConnectedToServer;
+            NetworkScene.DestroyedGameObject += OnDestroyedObject;
+            NetworkScene.CreatedGameObject += OnCreatedObject;
         }
 
         /// <summary>
@@ -140,6 +145,42 @@ namespace AuthoritativeServer
             NetworkController.Instance.RegisterReceiveHandler(RPCMsg, OnRPC);
         }
 
+        private void OnCreatedObject(NetworkIdentity identity)
+        {
+            if (NetworkController.Instance.IsServer)
+                return;
+
+            if (m_BufferedMessages == null)
+                return;
+
+            if (m_BufferedMessages.TryGetValue(identity.InstanceID, out HashSet<NetworkWriter> bufferedRPCs))
+            {
+                foreach (NetworkWriter bufferedRPC in bufferedRPCs)
+                {
+                    OnRPC(bufferedRPC);
+                }
+            }
+        }
+
+        private void OnDestroyedObject(NetworkIdentity identity)
+        {
+            m_BufferedMessages?.Remove(identity.InstanceID);
+        }
+
+        private void OnClientConnectedToServer(NetworkConnection conn)
+        {
+            if (m_BufferedMessages == null)
+                return;
+
+            foreach (HashSet<NetworkWriter> bufferedRPCs in m_BufferedMessages.Values)
+            {
+                foreach (NetworkWriter bufferedRPC in bufferedRPCs)
+                {
+                    conn.Send(0, RPCMsg, bufferedRPC.ToArray());
+                }
+            }
+        }
+
         private void OnRPC(NetworkWriter writer)
         {
             ReadRPC(writer, out int connection, out int instanceID, out byte rpcType, out int rpcIndex, out int argumentCount, out object[] arguments);
@@ -147,7 +188,14 @@ namespace AuthoritativeServer
             NetworkIdentity identity = NetworkIdentityManager.Instance.Get(instanceID);
 
             if (identity == null)
+            {
+                if (!NetworkController.Instance.IsServer)
+                {
+                    InitBuffer(instanceID);
+                    m_BufferedMessages[instanceID].Add(new NetworkWriter(writer.ToArray()));
+                }
                 return;
+            }
 
             if (rpcIndex == -1 || rpcIndex >= m_Methods.Count)
                 return;
@@ -168,18 +216,20 @@ namespace AuthoritativeServer
                 switch (type)
                 {
                     case RPCType.All:
-                        NetworkController.Instance.SendToAll(writer.ToArray(), RPCMsg);
+                        NetworkController.Instance.SendToAll(0, RPCMsg, writer.ToArray());
                         return;
                     case RPCType.AllBuffered:
-                        NetworkController.Instance.SendToAll(writer.ToArray(), RPCMsg);
-                        // TODO: buffer
+                        NetworkController.Instance.SendToAll(0, RPCMsg, writer.ToArray());
+                        InitBuffer(instanceID);
+                        m_BufferedMessages[instanceID].Add(new NetworkWriter(writer.ToArray()));
                         return;
                     case RPCType.Others:
                         NetworkController.Instance.SendToAllExcluding(writer.ToArray(), RPCMsg, connection);
                         return;
                     case RPCType.OthersBuffered:
                         NetworkController.Instance.SendToAllExcluding(writer.ToArray(), RPCMsg, connection);
-                        // TODO: buffer
+                        InitBuffer(instanceID);
+                        m_BufferedMessages[instanceID].Add(new NetworkWriter(writer.ToArray()));
                         return;
                 }
             }
@@ -289,6 +339,17 @@ namespace AuthoritativeServer
             return writer;
         }
 
+        private void InitBuffer(int instanceID)
+        {
+            if (m_BufferedMessages == null)
+                m_BufferedMessages = new Dictionary<int, HashSet<NetworkWriter>>();
+
+            if (!m_BufferedMessages.TryGetValue(instanceID, out HashSet<NetworkWriter> writer))
+            {
+                m_BufferedMessages[instanceID] = new HashSet<NetworkWriter>();
+            }
+        }
+
         #endregion
 
         #region PUBLIC
@@ -316,7 +377,6 @@ namespace AuthoritativeServer
             }
 
             int index = m_Methods?.FindIndex(x => x.m_MethodName == function) ?? -1;
-
             if (index == -1)
                 return;
 
@@ -331,41 +391,59 @@ namespace AuthoritativeServer
 
             switch (type)
             {
-                case RPCType.ServerOnly:
-                    if (NetworkController.Instance.IsServer)
-                    {
-                        NetworkBehaviour networkBehaviour = identity.GetComponent<NetworkBehaviour>();
-                        networkBehaviour.InvokeRPC(function, parameters);
-                    }
-                    else NetworkController.Instance.Send(connectionID, 0, RPCMsg, data);
-                    break;
                 case RPCType.All:
-                    if (NetworkController.Instance.IsServer)
-                        NetworkController.Instance.SendToAll(data, RPCMsg);
-                    else NetworkController.Instance.Send(connectionID, 0, RPCMsg, data);
-                    break;
-                case RPCType.AllBuffered:
-                    if (NetworkController.Instance.IsServer)
                     {
-                        NetworkController.Instance.SendToAll(data, RPCMsg);
-                        // TODO: buffer
+                        if (NetworkController.Instance.IsServer) NetworkController.Instance.SendToAll(0, RPCMsg, data);
+                        else NetworkController.Instance.Send(connectionID, 0, RPCMsg, data);
+                        break;
                     }
-                    else NetworkController.Instance.Send(connectionID, 0, RPCMsg, data);
-                    break;
                 case RPCType.Others:
-                    if (NetworkController.Instance.IsServer)
-                        NetworkController.Instance.SendToAll(data, RPCMsg);
-                    else NetworkController.Instance.Send(connectionID, 0, RPCMsg, data);
-                    break;
-                case RPCType.OthersBuffered:
-                    if (NetworkController.Instance.IsServer)
                     {
-                        NetworkController.Instance.SendToAll(data, RPCMsg);
-                        // TODO: buffer
+                        if (NetworkController.Instance.IsServer) NetworkController.Instance.SendToAll(0, RPCMsg, data);
+                        else NetworkController.Instance.Send(connectionID, 0, RPCMsg, data);
+                        break;
                     }
-                    else NetworkController.Instance.Send(connectionID, 0, RPCMsg, data);
+                case RPCType.ServerOnly:
+                    {
+                        if (NetworkController.Instance.IsServer)
+                        {
+                            NetworkBehaviour networkBehaviour = identity.GetComponent<NetworkBehaviour>();
+                            networkBehaviour.InvokeRPC(function, parameters);
+                        }
+                        else NetworkController.Instance.Send(connectionID, 0, RPCMsg, data);
+                        break;
+                    }
+                case RPCType.AllBuffered:
+                    {
+                        if (NetworkController.Instance.IsServer)
+                        {
+                            InitBuffer(identity.InstanceID);
+                            m_BufferedMessages[identity.InstanceID].Add(new NetworkWriter(writer.ToArray()));
+                            NetworkController.Instance.SendToAll(0, RPCMsg, data);
+                        }
+                        else NetworkController.Instance.Send(connectionID, 0, RPCMsg, data);
+                        break;
+                    }
+                case RPCType.OthersBuffered:
+                    {
+                        if (NetworkController.Instance.IsServer)
+                        {
+                            InitBuffer(identity.InstanceID);
+                            m_BufferedMessages[identity.InstanceID].Add(new NetworkWriter(writer.ToArray()));
+                            NetworkController.Instance.SendToAll(0, RPCMsg, data);
+                        }
+                        else NetworkController.Instance.Send(connectionID, 0, RPCMsg, data);
+                    }
                     break;
             }
+        }
+
+        /// <summary>
+        /// Clears the runtime RPC buffer.
+        /// </summary>
+        public void ClearBuffer()
+        {
+            m_BufferedMessages?.Clear();
         }
 
         #endregion
