@@ -110,7 +110,7 @@ namespace AuthoritativeServer
         private byte m_UnReliableChannel = 0;
         private int m_HostID = -1;
         private byte[] m_ReceiveBuffer;
-        private int m_MessageSize = 256;
+        private int m_MessageSize = 1024;
         private int m_LastSendSize;
 
         private Dictionary<int, NetworkConnection> m_Connections;
@@ -397,13 +397,13 @@ namespace AuthoritativeServer
 
         private void Receive()
         {
+            if (!IsStarted)
+                return;
+
             NetworkEventType type;
 
             do
             {
-                if (!IsStarted)
-                    return;
-
                 type = NetworkTransport.Receive(
                     out int hostID,
                     out int connectionID,
@@ -413,23 +413,31 @@ namespace AuthoritativeServer
                     out int receivedSize,
                     out byte error);
 
-                switch (type)
+                try
                 {
-                    case NetworkEventType.DataEvent:
-                        OnReceiveData(hostID, connectionID, channelID, m_ReceiveBuffer, receivedSize);
-                        break;
-                    case NetworkEventType.ConnectEvent:
-                        OnClientConnected(connectionID);
-                        break;
-                    case NetworkEventType.DisconnectEvent:
-                        OnClientDisconnected(connectionID);
-                        break;
-                }
+                    switch (type)
+                    {
+                        case NetworkEventType.DataEvent:
+                            OnReceiveData(hostID, connectionID, channelID, m_ReceiveBuffer, receivedSize);
+                            break;
+                        case NetworkEventType.ConnectEvent:
+                            OnClientConnected(connectionID);
+                            break;
+                        case NetworkEventType.DisconnectEvent:
+                            OnClientDisconnected(connectionID);
+                            break;
+                    }
 
-                if ((NetworkError)error != NetworkError.Ok)
+                    if ((NetworkError)error != NetworkError.Ok)
+                    {
+                        DebugLogError("Receive Error: " + (NetworkError)error);
+                        break;
+                    }
+                }
+                catch(Exception e)
                 {
-                    DebugLogError("Receive Error: " + (NetworkError)error);
-                    continue;
+                    DebugLogError(e);
+                    return;
                 }
             }
             while (type != NetworkEventType.Nothing);

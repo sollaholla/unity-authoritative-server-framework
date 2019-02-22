@@ -1,5 +1,6 @@
 ﻿using AuthoritativeServer.Inputs;
 using UnityEngine;
+using UnityEngine.Networking;
 
 namespace AuthoritativeServer.Demo
 {
@@ -11,6 +12,13 @@ namespace AuthoritativeServer.Demo
 
         private CharacterMotor m_Motor;
 
+        private Quaternion m_LastRotation;
+        private float m_LastAngle;
+        private Vector3 m_LastPosition;
+        private float m_LastDistance;
+        private bool m_LastGrounded;
+        private bool m_Sync;
+
         protected override void Awake()
         {
             base.Awake();
@@ -19,6 +27,30 @@ namespace AuthoritativeServer.Demo
             m_ClientStream.Initialize(transform);
 
             m_Motor = GetComponent<CharacterMotor>();
+        }
+
+        protected override void FixedUpdate()
+        {
+            base.FixedUpdate();
+
+            SmoothObservation();
+        }
+
+        private void SmoothObservation()
+        {
+            if (!IsServer && !IsOwner && m_Sync)
+            {
+                transform.position = Vector3.MoveTowards(transform.position, m_LastPosition, m_LastDistance * (1.0f / NetworkController.Instance.Settings.m_SendDelay) * 2f);
+
+                transform.rotation = Quaternion.RotateTowards(transform.rotation, m_LastRotation, m_LastAngle * (1.0f / NetworkController.Instance.Settings.m_SendDelay) * 2f);
+
+                m_Motor.Simulate(Vector2.zero, 0, false, m_LastGrounded);
+
+                if (transform.position == m_LastPosition && transform.rotation == m_LastRotation)
+                {
+                    m_Sync = false;
+                }
+            }
         }
 
         public override void OnServerInitialize()
@@ -88,6 +120,7 @@ namespace AuthoritativeServer.Demo
                     Vector3 predicted = prediction.GetInput<Vector3Input>(0);
 
                     float distance = Vector3.Distance(position, predicted);
+
                     const float ERR = 0.00001f;
 
                     return distance < ERR;
@@ -97,17 +130,21 @@ namespace AuthoritativeServer.Demo
             }
             else
             {
-                float yRot = serverInput.GetInput<FloatInput>(1);
+                float heading = serverInput.GetInput<FloatInput>(1);
 
-                Quaternion rot = Quaternion.Euler(0, yRot, 0);
+                Quaternion rotation = Quaternion.Euler(0, heading, 0);
 
-                bool isGrounded = serverInput.GetInput<BoolInput>(2);
+                m_LastGrounded = serverInput.GetInput<BoolInput>(2);
 
-                transform.position = position;
+                m_LastPosition = position;
 
-                transform.rotation = rot;
+                m_LastDistance = Vector3.Distance(transform.position, m_LastPosition);
 
-                m_Motor.Simulate(Vector2.zero, 0, false, isGrounded);
+                m_LastRotation = rotation;
+
+                m_LastAngle = Quaternion.Angle(transform.rotation, m_LastRotation);
+
+                m_Sync = true;
 
                 return true;
             }

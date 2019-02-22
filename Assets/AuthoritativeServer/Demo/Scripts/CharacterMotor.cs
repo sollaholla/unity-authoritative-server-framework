@@ -7,11 +7,17 @@ namespace AuthoritativeServer.Demo
     [RequireComponent(typeof(Animator))]
     public class CharacterMotor : MonoBehaviour
     {
+        #region INSPECTOR
+
         [Header("Movement")]
         [SerializeField]
         private float m_DefaultRotationSpeed = 15f;
         [SerializeField]
         private float m_DefaultMoveSpeed = 5f;
+
+        #endregion
+
+        #region FIELDS
 
         private CharacterController m_CharacterController;
         private Animator m_Animator;
@@ -25,12 +31,20 @@ namespace AuthoritativeServer.Demo
         private Vector3 m_GravityVector;
         private float m_FallTime;
 
+        #endregion
+
+        #region PROPERTIES
+
         /// <summary>
         /// True if the <see cref="CharacterController.isGrounded"/>.
         /// </summary>
         public bool isGrounded {
             get { return m_CharacterController.isGrounded; }
         }
+
+        #endregion
+
+        #region UNITY
 
         private void Awake()
         {
@@ -42,11 +56,17 @@ namespace AuthoritativeServer.Demo
             m_LastPosition = transform.position;
         }
 
+        #endregion
+
+        #region PUBLIC
+
         /// <summary>
         /// Simulate movement.
         /// </summary>
         /// <param name="input">The movement input.</param>
-        /// <param name="heading">The rotation.</param>
+        /// <param name="heading">The y rotation (euler angles).</param>
+        /// <param name="move">True if you want the input to execute movement.</param>
+        /// <param name="overrideGrounded">True if you want to override our grounded animation.</param>
         public void Simulate(Vector2 input, float heading, bool move = true, bool overrideGrounded = false)
         {
             if (move)
@@ -60,6 +80,23 @@ namespace AuthoritativeServer.Demo
             Animate(m_CharacterController.isGrounded || overrideGrounded);
         }
 
+        /// <summary>
+        /// Teleport the character to the specified position and rotation.
+        /// </summary>
+        /// <param name="position"></param>
+        /// <param name="rotation"></param>
+        public void TeleportTo(Vector3 position, Quaternion rotation)
+        {
+            m_CharacterController.enabled = false;
+            transform.position = position;
+            transform.rotation = rotation;
+            m_CharacterController.enabled = true;
+        }
+
+        #endregion
+
+        #region PRIVATE
+
         private void UpdateGravity()
         {
             if (m_CharacterController.isGrounded)
@@ -70,14 +107,6 @@ namespace AuthoritativeServer.Demo
             {
                 m_GravityVector += -Vector3.up * 9.81f * Time.fixedDeltaTime;
             }
-        }
-
-        public void TeleportTo(Vector3 position, Quaternion rotation)
-        {
-            m_CharacterController.enabled = false;
-            transform.position = position;
-            transform.rotation = rotation;
-            m_CharacterController.enabled = true;
         }
 
         private void Rotate(float heading)
@@ -118,5 +147,7 @@ namespace AuthoritativeServer.Demo
             m_Animator.SetFloat("InputY", animationVelocity.z / m_MovementSpeed, 0.1f, Time.fixedDeltaTime);
             m_Animator.SetBool("Grounded", isGrounded);
         }
+
+        #endregion
     }
 }

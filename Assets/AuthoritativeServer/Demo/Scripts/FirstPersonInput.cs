@@ -17,9 +17,11 @@ namespace AuthoritativeServer.Demo
 
         protected override void Build(InputData data)
         {
-            data.Add(new FloatInput(Input.GetAxisRaw("Horizontal")));
+            Vector2 input = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical")).normalized;
 
-            data.Add(new FloatInput(Input.GetAxisRaw("Vertical")));
+            data.Add(new FloatInput(input.x));
+
+            data.Add(new FloatInput(input.y));
 
             data.Add(new FloatInput(GetHeading()));
         }

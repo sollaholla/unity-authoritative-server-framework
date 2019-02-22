@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 using UnityEngine;
 
@@ -10,6 +9,8 @@ namespace AuthoritativeServer.Inputs
         public const short ServerSendMsg = -8;
         public const short ClientSendMsg = -9;
 
+        #region FIELDS
+
         protected TInput m_ClientStream;
         protected TOutput m_ServerStream;
         private List<InputData> m_Replay = new List<InputData>(100);
@@ -17,6 +18,10 @@ namespace AuthoritativeServer.Inputs
 
         private bool m_ExecutedInput;
         private InputData m_LastInput;
+
+        #endregion
+
+        #region UNITY
 
         protected virtual void Awake()
         {
@@ -36,6 +41,10 @@ namespace AuthoritativeServer.Inputs
 
             Collect();
         }
+
+        #endregion
+
+        #region ABSTRACT
 
         /// <summary>
         /// Execute the given input data.
@@ -58,6 +67,10 @@ namespace AuthoritativeServer.Inputs
         /// <param name="serverInput"></param>
         protected abstract void CorrectSimulation(InputData serverInput);
 
+        #endregion
+
+        #region PRIVATE
+
         private void GetInput()
         {
             if (!IsOwner)
@@ -78,25 +91,24 @@ namespace AuthoritativeServer.Inputs
         {
             if (!IsServer)
             {
-                InputData serverInput = null;
+                InputData serverInput = m_ServerStream.ReceiveNext();
 
-                while ((serverInput = m_ServerStream.ReceiveNext()) != null)
+                while (serverInput != null)
                 {
-                    if (serverInput != null)
+                    InputData prediction = m_Predictions.Find(x => x.Time == serverInput.Time);
+
+                    List<InputData> replay = m_Replay.FindAll(x => x.Time >= serverInput.Time);
+
+                    if (!UpdateSimulation(serverInput, prediction))
                     {
-                        InputData prediction = m_Predictions.Find(x => x.Time == serverInput.Time);
-
-                        List<InputData> replay = m_Replay.FindAll(x => x.Time >= serverInput.Time);
-
-                        if (!UpdateSimulation(serverInput, prediction))
-                        {
-                            Replay(serverInput, replay);
-                        }
-
-                        m_Predictions.RemoveAll(x => x.Time <= serverInput.Time);
-
-                        m_Replay.RemoveAll(x => x.Time <= serverInput.Time);
+                        Replay(serverInput, replay);
                     }
+
+                    m_Predictions.RemoveAll(x => x.Time <= serverInput.Time);
+
+                    m_Replay.RemoveAll(x => x.Time <= serverInput.Time);
+
+                    serverInput = m_ServerStream.ReceiveNext();
                 }
             }
 
@@ -118,16 +130,15 @@ namespace AuthoritativeServer.Inputs
 
             if (IsServer)
             {
-                InputData input = null;
+                InputData input = m_ClientStream.ReceiveNext();
 
-                while ((input = m_ClientStream.ReceiveNext()) != null)
+                while (input != null)
                 {
-                    if (input != null)
-                    {
-                        ExecuteInput(input);
+                    ExecuteInput(input);
 
-                        m_ServerStream.GetInput(input.Time);
-                    }
+                    m_ServerStream.GetInput(input.Time);
+
+                    input = m_ClientStream.ReceiveNext();
                 }
             }
         }
@@ -142,12 +153,7 @@ namespace AuthoritativeServer.Inputs
 
                 ExecuteInput(replayPoint);
 
-                int predictionIndex = m_Predictions.FindIndex(x => x.Time == replayPoint.Time);
-
-                if (predictionIndex != -1)
-                {
-                    m_Predictions[predictionIndex] = m_ServerStream.GetInput(replayPoint.Time, false);
-                }
+                m_Predictions[i] = m_ServerStream.GetInput(replayPoint.Time, false);
             }
         }
 
@@ -232,5 +238,7 @@ namespace AuthoritativeServer.Inputs
 
             return playerObj.GetComponent<AuthoritativeInput<TInput, TOutput>>();
         }
+
+        #endregion
     }
 }

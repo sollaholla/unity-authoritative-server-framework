@@ -13,6 +13,9 @@ namespace AuthoritativeServer.Demo
 
         private FirstPersonPlayer m_PlayerInput;
 
+        private float m_XInput;
+        private float m_YInput;
+
         private float m_CurrentX;
         private float m_CurrentY;
 
@@ -24,11 +27,11 @@ namespace AuthoritativeServer.Demo
 
         private void Update()
         {
-            float inputX = Input.GetAxis("Mouse X");
-            float inputY = Input.GetAxis("Mouse Y");
+            m_XInput = Input.GetAxis("Mouse X");
+            m_YInput = Input.GetAxis("Mouse Y");
 
-            m_CurrentX += inputX * Time.deltaTime * (360f * m_SensitivityX);
-            m_CurrentY -= inputY * Time.deltaTime * (360f * m_SensitivityY);
+            m_CurrentX += m_XInput * (360f * m_SensitivityX) * Time.fixedDeltaTime;
+            m_CurrentY -= m_YInput * (360f * m_SensitivityY) * Time.fixedDeltaTime;
             m_CurrentY = Mathf.Clamp(m_CurrentY, -90f, 90f);
 
             transform.rotation = Quaternion.Euler(m_CurrentY, m_CurrentX, 0);
