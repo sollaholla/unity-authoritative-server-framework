@@ -26,7 +26,9 @@ namespace AuthoritativeServer.Inputs
         protected virtual void Awake()
         {
             m_ClientStream = new TInput();
+
             m_ServerStream = new TOutput();
+
             RegisterHandlers();
         }
 
@@ -37,9 +39,9 @@ namespace AuthoritativeServer.Inputs
 
         protected virtual void FixedUpdate()
         {
-            Send();
-
             Collect();
+
+            Send();
         }
 
         #endregion
@@ -76,20 +78,32 @@ namespace AuthoritativeServer.Inputs
             if (!IsOwner)
                 return;
 
-            if (!m_ExecutedInput)
+            if (m_LastInput == null)
             {
-                if (IsOwner)
-                {
-                    m_LastInput = m_ClientStream.GetInput(Time.fixedTime);
-                }
-
-                m_ExecutedInput = true;
+                m_LastInput = m_ClientStream.GetInput(Time.time);
+            }
+            else
+            {
+                m_LastInput = m_ClientStream.GetInput(m_LastInput.Time, false, true);
             }
         }
 
         private void Collect()
         {
-            if (!IsServer)
+            if (IsServer)
+            {
+                InputData input = m_ClientStream.ReceiveNext();
+
+                while (input != null)
+                {
+                    ExecuteInput(input);
+
+                    m_ServerStream.GetInput(input.Time);
+
+                    input = m_ClientStream.ReceiveNext();
+                }
+            }
+            else
             {
                 InputData serverInput = m_ServerStream.ReceiveNext();
 
@@ -114,31 +128,15 @@ namespace AuthoritativeServer.Inputs
 
             if (IsOwner)
             {
-                if (m_ExecutedInput)
+                if (m_LastInput != null)
                 {
                     ExecuteInput(m_LastInput);
 
                     m_Replay.Add(m_LastInput);
 
-                    InputData prediction = m_ServerStream.GetInput(m_LastInput.Time, false);
+                    m_Predictions.Add(m_ServerStream.GetInput(m_LastInput.Time, false));
 
-                    m_Predictions.Add(prediction);
-
-                    m_ExecutedInput = false;
-                }
-            }
-
-            if (IsServer)
-            {
-                InputData input = m_ClientStream.ReceiveNext();
-
-                while (input != null)
-                {
-                    ExecuteInput(input);
-
-                    m_ServerStream.GetInput(input.Time);
-
-                    input = m_ClientStream.ReceiveNext();
+                    m_LastInput = null;
                 }
             }
         }
@@ -147,13 +145,22 @@ namespace AuthoritativeServer.Inputs
         {
             CorrectSimulation(serverInput);
 
-            for (int i = 0; i < replay.Count; i++)
+            int index = 0;
+
+            while (index < replay.Count)
             {
-                InputData replayPoint = replay[i];
+                InputData replayPoint = replay[index];
 
                 ExecuteInput(replayPoint);
 
-                m_Predictions[i] = m_ServerStream.GetInput(replayPoint.Time, false);
+                int predictionIndex = m_Predictions.FindIndex(x => x.Time == replayPoint.Time);
+
+                if (predictionIndex != -1)
+                {
+                    m_Predictions[predictionIndex] = m_ServerStream.GetInput(replayPoint.Time, false);
+                }
+
+                index++;
             }
         }
 

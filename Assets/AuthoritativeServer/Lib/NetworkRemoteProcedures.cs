@@ -288,6 +288,9 @@ namespace AuthoritativeServer
                         NetworkConnection connection = new NetworkConnection(writer.ReadInt16());
                         args.Add(connection);
                         break;
+                    case RPCParameter.String:
+                        args.Add(writer.ReadString());
+                        break;
                 }
             }
             arguments = args.ToArray();
@@ -347,6 +350,11 @@ namespace AuthoritativeServer
                     {
                         writer.Write((byte)RPCParameter.Connection);
                         writer.Write((short)c.ConnectionID);
+                    }
+                    else if (arg is string str)
+                    {
+                        writer.Write((byte)RPCParameter.String);
+                        writer.Write(str);
                     }
                 }
             }

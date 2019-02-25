@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-
+using System.Text;
 using UnityEngine;
 
 namespace AuthoritativeServer
@@ -51,6 +51,12 @@ namespace AuthoritativeServer
         public void Write(int value)
         {
             m_Data.AddRange(BitConverter.GetBytes(value));
+        }
+
+        public void Write(string value)
+        {
+            m_Data.AddRange(BitConverter.GetBytes((short)value.Length));
+            m_Data.AddRange(Encoding.ASCII.GetBytes(value));
         }
 
         public void Write(bool value)
@@ -165,6 +171,13 @@ namespace AuthoritativeServer
             float x = ReadSingle();
             float y = ReadSingle();
             return new Vector2(x, y);
+        }
+
+        public string ReadString()
+        {
+            int count = ReadInt16();
+            byte[] data = ReadBytes(count);
+            return Encoding.ASCII.GetString(data);
         }
 
         /// <summary>

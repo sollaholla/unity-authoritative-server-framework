@@ -685,7 +685,7 @@ namespace AuthoritativeServer
             int connectionID = writer.ReadInt16();
             bool isLocalPlayer = writer.ReadBool();
 
-            DebugLog(string.Format("Remote {0} connected to the server. Is Local {1}", connectionID, isLocalPlayer));
+            DebugLog(string.Format("Remote {0} connected to the server. Is Mine: {1}", connectionID, isLocalPlayer));
 
             if (isLocalPlayer)
             {

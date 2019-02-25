@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-
+using System.Linq;
 using UnityEngine;
 
 namespace AuthoritativeServer.Inputs
@@ -23,7 +23,7 @@ namespace AuthoritativeServer.Inputs
             Value = value;
         }
 
-        public T Value { get; protected set; }
+        public T Value { get; set; }
 
         public abstract override byte[] Serialize();
 
@@ -150,6 +150,37 @@ namespace AuthoritativeServer.Inputs
         }
     }
 
+    public class TriggerInput : InputType<bool>
+    {
+        public TriggerInput() { }
+
+        public TriggerInput(bool value) : base(value)
+        { }
+
+        public override void Deserialize(byte[] data)
+        {
+            NetworkWriter writer = new NetworkWriter(data);
+            Value = writer.ReadBool();
+        }
+
+        public override byte[] Serialize()
+        {
+            NetworkWriter writer = new NetworkWriter();
+            writer.Write(Value);
+            return writer.ToArray();
+        }
+
+        public override bool Compare(InputTypeBase other)
+        {
+            if (other is TriggerInput v)
+            {
+                return v.Value == Value;
+            }
+
+            return false;
+        }
+    }
+
     public class InputData
     {
         private List<Type> m_ExpectedInputs;
@@ -169,7 +200,7 @@ namespace AuthoritativeServer.Inputs
         /// <summary>
         /// The input time.
         /// </summary>
-        public float Time { get; private set; }
+        public float Time { get; set; }
 
         /// <summary>
         /// The inputs.
@@ -289,6 +320,12 @@ namespace AuthoritativeServer.Inputs
             return true;
         }
 
+        /// <summary>
+        /// Get input of type at the specified index. Check the <see cref="InputStream.Build(InputData)"/> for the order that inputs are built.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="index"></param>
+        /// <returns></returns>
         public T GetInput<T> (int index) where T : InputTypeBase
         {
             return Inputs[index] as T;
@@ -316,7 +353,7 @@ namespace AuthoritativeServer.Inputs
         /// Collect input values.
         /// </summary>
         /// <param name="time">The timestamp.</param>
-        public InputData GetInput(float time, bool add = true)
+        public InputData GetInput(float time, bool add = true, bool overriteLast = false)
         {
             if (m_InputData == null)
                 m_InputData = new List<InputData>();
@@ -325,20 +362,39 @@ namespace AuthoritativeServer.Inputs
 
             Build(data);
 
-            if (!add)
-                return data;
-
             if (m_InputData.Count > 0)
             {
                 InputData last = m_InputData[m_InputData.Count - 1];
+
+                for (int i = 0; i < last.Inputs.Count; i++)
+                {
+                    InputTypeBase inputType = last.Inputs[i];
+
+                    if (inputType is TriggerInput t)
+                    {
+                        if (t.Value)
+                        {
+                            TriggerInput other = data.Inputs[i] as TriggerInput;
+
+                            other.Value = t.Value;
+                        }
+                    }
+                }
+
+                if (overriteLast)
+                {
+                    m_InputData[m_InputData.Count - 1] = data;
+                }
+
                 if (last.Compare(data))
                 {
-                    last.AddSimilar(data);
+                    if (add) last.AddSimilar(data);
                     return data;
                 }
             }
 
-            m_InputData.Add(data);
+            if (add) m_InputData.Add(data);
+
             return data;
         }
 
