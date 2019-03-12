@@ -19,9 +19,9 @@ MonoBehaviour:
   m_PacketSize: 1440
   m_FragmentSize: 900
   m_SimulateNetworking: 0
-  m_MinLatency: 100
-  m_MaxLatency: 200
-  m_PacketLoss: 0.7
+  m_MinLatency: 20
+  m_MaxLatency: 100
+  m_PacketLoss: 0.25
   m_OfflineScene:
     m_SceneName: OfflineScene
     m_ScenePath: Assets/AuthoritativeServer/Demo/Scenes/OfflineScene.unity
@@ -29,8 +29,53 @@ MonoBehaviour:
     m_SceneName: OnlineScene
     m_ScenePath: Assets/AuthoritativeServer/Demo/Scenes/OnlineScene.unity
   m_PlayerObject: {fileID: 62, guid: b535aedf90154294c8897c24370fc299, type: 3}
-  m_RegisteredObjects:
-  - {fileID: 5059823675722000569, guid: a3b0c0f0b54d8014ea379403621bb50f, type: 3}
-  - {fileID: 62, guid: b535aedf90154294c8897c24370fc299, type: 3}
   m_RemoteProcedures:
-    m_Methods: []
+    m_Methods:
+    - m_TypeName: Inventory
+      m_MethodName: ServerRpcCraft
+      m_ArgumentCount: 0
+    - m_TypeName: Inventory
+      m_MethodName: ServerRpcDrop
+      m_ArgumentCount: 3
+    - m_TypeName: Inventory
+      m_MethodName: ServerRpcAdd
+      m_ArgumentCount: 2
+    - m_TypeName: Inventory
+      m_MethodName: ServerRpcMove
+      m_ArgumentCount: 5
+    - m_TypeName: Inventory
+      m_MethodName: SharedRpcClientReleaseClaim
+      m_ArgumentCount: 5
+    - m_TypeName: Inventory
+      m_MethodName: SharedRpcClientClaim
+      m_ArgumentCount: 1
+    - m_TypeName: Inventory
+      m_MethodName: ClientRpcSetItemStack
+      m_ArgumentCount: 3
+    - m_TypeName: Inventory
+      m_MethodName: ClientRpcSwapItem
+      m_ArgumentCount: 7
+    - m_TypeName: Inventory
+      m_MethodName: ClientRpcMoveItem
+      m_ArgumentCount: 6
+    - m_TypeName: Inventory
+      m_MethodName: ClientRpcClearCollection
+      m_ArgumentCount: 2
+    - m_TypeName: InventoryEquipment
+      m_MethodName: EquipWeaponBuffered
+      m_ArgumentCount: 2
+    - m_TypeName: InventoryEquipment
+      m_MethodName: EquipEquippableBuffered
+      m_ArgumentCount: 2
+    - m_TypeName: InventoryEquipment
+      m_MethodName: UnequipWeapon
+      m_ArgumentCount: 1
+    - m_TypeName: InventoryEquipment
+      m_MethodName: UnequipEquippable
+      m_ArgumentCount: 1
+    - m_TypeName: InventoryEquipment
+      m_MethodName: EquipWeapon
+      m_ArgumentCount: 1
+    - m_TypeName: InventoryEquipment
+      m_MethodName: EquipEquippable
+      m_ArgumentCount: 1

@@ -16,12 +16,17 @@ namespace AuthoritativeServer.Demo
 
         #endregion
 
+        /// <summary>
+        /// Allows input if true otherwise disallows input.
+        /// </summary>
+        public bool UseInput { get; set; } = true;
+
         #region PUBLIC
 
         public void Initialize(Transform t)
         {
             m_Transform = t;
-            m_MainCameraTransform = Camera.main?.transform;
+            m_MainCameraTransform = Camera.main?.transform.parent;
         }
 
         #endregion
@@ -30,7 +35,7 @@ namespace AuthoritativeServer.Demo
 
         protected override void Build(InputData data)
         {
-            Vector2 input = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical")).normalized;
+            Vector2 input = UseInput ? new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical")).normalized : Vector2.zero;
 
             data.Add(new FloatInput(input.x));
 
@@ -38,9 +43,9 @@ namespace AuthoritativeServer.Demo
 
             data.Add(new FloatInput(m_MainCameraTransform?.eulerAngles.y ?? 0));
 
-            data.Add(new TriggerInput(Input.GetButtonDown("Jump")));
+            data.Add(new TriggerInput(UseInput ? Input.GetButtonDown("Jump") : false));
 
-            data.Add(new BoolInput(Input.GetButton("Crouch")));
+            data.Add(new BoolInput(UseInput ? Input.GetButton("Crouch") : false));
         }
 
         #endregion

@@ -41,6 +41,10 @@ namespace AuthoritativeServer.Demo
             data.Add(new BoolInput(m_Motor.isJumping));
 
             data.Add(new BoolInput(m_Motor.isCrouching));
+
+            data.Add(new Vector3Input(m_Motor.horizontalVelocity));
+
+            data.Add(new FloatInput(m_Motor.gravitationalAccel));
         }
 
         #endregion

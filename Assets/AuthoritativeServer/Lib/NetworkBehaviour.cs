@@ -11,7 +11,7 @@ namespace AuthoritativeServer
 
         private NetworkIdentity m_Identity;
 
-        private Dictionary<string, Action<object[]>> m_RPCs;
+        private Dictionary<string, Delegate> m_RPCs;
 
         #endregion
 
@@ -66,17 +66,88 @@ namespace AuthoritativeServer
         public virtual void OnOwnerInitialize()
         { }
 
-        /// <summary>
-        /// Register an RPC call with the given name.
-        /// </summary>
-        /// <param name="name"></param>
-        /// <param name="rpcMethod"></param>
-        public void RegisterRPC(string name, Action<object[]> rpcMethod)
+        public void RegisterRPC(Action method)
         {
             if (m_RPCs == null)
-                m_RPCs = new Dictionary<string, Action<object[]>>();
+                m_RPCs = new Dictionary<string, Delegate>();
 
-            m_RPCs[name] = rpcMethod;
+            Delegate d = Delegate.CreateDelegate(typeof(Action), this, method.Method.Name);
+            m_RPCs[method.Method.Name] = d;
+        }
+
+        public void RegisterRPC<T1>(Action<T1> method)
+        {
+            if (m_RPCs == null)
+                m_RPCs = new Dictionary<string, Delegate>();
+
+            Delegate d = Delegate.CreateDelegate(typeof(Action<T1>), this, method.Method.Name);
+            m_RPCs[method.Method.Name] = d;
+        }
+
+        public void RegisterRPC<T1, T2>(Action<T1, T2> method)
+        {
+            if (m_RPCs == null)
+                m_RPCs = new Dictionary<string, Delegate>();
+
+            Delegate d = Delegate.CreateDelegate(typeof(Action<T1, T2>), this, method.Method.Name);
+            m_RPCs[method.Method.Name] = d;
+        }
+
+        public void RegisterRPC<T1, T2, T3>(Action<T1, T2, T3> method)
+        {
+            if (m_RPCs == null)
+                m_RPCs = new Dictionary<string, Delegate>();
+
+            Delegate d = Delegate.CreateDelegate(typeof(Action<T1, T2, T3>), this, method.Method.Name);
+            m_RPCs[method.Method.Name] = d;
+        }
+
+        public void RegisterRPC<T1, T2, T3, T4>(Action<T1, T2, T3, T4> method)
+        {
+            if (m_RPCs == null)
+                m_RPCs = new Dictionary<string, Delegate>();
+
+            Delegate d = Delegate.CreateDelegate(typeof(Action<T1, T2, T3, T4>), this, method.Method.Name);
+            m_RPCs[method.Method.Name] = d;
+        }
+
+        /// <summary>
+        /// Executed when the server needs to serialize custom data for this object.
+        /// </summary>
+        /// <returns></returns>
+        public virtual byte[] OnSerialize() { return null; }
+
+        /// <summary>
+        /// Executed when the client should deserialize custom data for this object.
+        /// </summary>
+        /// <param name="data"></param>
+        public virtual void OnDeserialize(byte[] data) { }
+
+        public void RegisterRPC<T1, T2, T3, T4, T5>(Action<T1, T2, T3, T4, T5> method)
+        {
+            if (m_RPCs == null)
+                m_RPCs = new Dictionary<string, Delegate>();
+
+            Delegate d = Delegate.CreateDelegate(typeof(Action<T1, T2, T3, T4, T5>), this, method.Method.Name);
+            m_RPCs[method.Method.Name] = d;
+        }
+
+        public void RegisterRPC<T1, T2, T3, T4, T5, T6>(Action<T1, T2, T3, T4, T5, T6> method)
+        {
+            if (m_RPCs == null)
+                m_RPCs = new Dictionary<string, Delegate>();
+
+            Delegate d = Delegate.CreateDelegate(typeof(Action<T1, T2, T3, T4, T5, T6>), this, method.Method.Name);
+            m_RPCs[method.Method.Name] = d;
+        }
+
+        public void RegisterRPC<T1, T2, T3, T4, T5, T6, T7>(Action<T1, T2, T3, T4, T5, T6, T7> method)
+        {
+            if (m_RPCs == null)
+                m_RPCs = new Dictionary<string, Delegate>();
+
+            Delegate d = Delegate.CreateDelegate(typeof(Action<T1, T2, T3, T4, T5, T6, T7>), this, method.Method.Name);
+            m_RPCs[method.Method.Name] = d;
         }
 
         /// <summary>
@@ -91,7 +162,7 @@ namespace AuthoritativeServer
 
             if (m_RPCs.TryGetValue(name, out var value))
             {
-                value.Invoke(arguments);
+                value.DynamicInvoke(arguments);
             }
         }
 

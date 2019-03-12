@@ -46,10 +46,19 @@ namespace AuthoritativeServer.Demo
             m_Motor = GetComponent<CharacterMotor>();
         }
 
+        private void OnEnable()
+        {
+            UiWindow.InputStateChanged += OnInputStateChanged;
+        }
+
+        private void OnDisable()
+        {
+            UiWindow.InputStateChanged -= OnInputStateChanged;
+        }
+
         protected override void Update()
         {
             base.Update();
-
         }
 
         protected override void FixedUpdate()
@@ -100,6 +109,11 @@ namespace AuthoritativeServer.Demo
             }
         }
 
+        private void OnInputStateChanged(bool useInput)
+        {
+            m_ClientStream.UseInput = useInput;
+        }
+
         #endregion
 
         #region PUBLIC
@@ -135,7 +149,11 @@ namespace AuthoritativeServer.Demo
 
             Quaternion rotation = Quaternion.Euler(0, serverInput.GetInput<FloatInput>(1), 0);
 
-            m_Motor.Teleport(position, rotation);
+            Vector3Input horiVelocity = serverInput.GetInput<Vector3Input>(5);
+
+            float grav = serverInput.GetInput<FloatInput>(6);
+
+            m_Motor.ForceSimulate(position, rotation, horiVelocity, grav);
         }
 
         protected override void ExecuteInput(InputData input)
@@ -172,7 +190,7 @@ namespace AuthoritativeServer.Demo
                     return dist < ERR;
                 }
 
-                throw new System.InvalidOperationException("Cannot update simulation because prediction wasn't found.");
+                return false;
             }
             else
             {

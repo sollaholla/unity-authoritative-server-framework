@@ -6,9 +6,6 @@ namespace AuthoritativeServer.Inputs
 {
     public abstract class AuthoritativeInput<TInput, TOutput> : NetworkBehaviour where TInput : InputStream, new() where TOutput : InputStream, new()
     {
-        public const short ServerSendMsg = -8;
-        public const short ClientSendMsg = -9;
-
         #region FIELDS
 
         protected TInput m_ClientStream;
@@ -26,7 +23,6 @@ namespace AuthoritativeServer.Inputs
         protected virtual void Awake()
         {
             m_ClientStream = new TInput();
-
             m_ServerStream = new TOutput();
 
             RegisterHandlers();
@@ -175,7 +171,7 @@ namespace AuthoritativeServer.Inputs
 
                 if (writer != null)
                 {
-                    NetworkController.Instance.Send(NetworkController.Instance.ConnectionID, 0, ClientSendMsg, writer.ToArray());
+                    NetworkController.Instance.Send(NetworkController.Instance.ConnectionID, NetworkController.ReliableChannel, NetworkMessageHandlers.ClientSendInputMsg, writer.ToArray());
                 }
             }
 
@@ -185,7 +181,7 @@ namespace AuthoritativeServer.Inputs
 
                 if (writer != null)
                 {
-                    NetworkController.Instance.SendToAll(0, ServerSendMsg, writer.ToArray());
+                    NetworkController.Instance.SendToAll(NetworkController.ReliableChannel, NetworkMessageHandlers.ServerSendInputMsg, writer.ToArray());
                 }
             }
         }
@@ -210,11 +206,11 @@ namespace AuthoritativeServer.Inputs
         {
             if (NetworkController.Instance.IsServer)
             {
-                NetworkController.Instance.RegisterReceiveHandler(ClientSendMsg, OnReceivedClientInput);
+                NetworkController.Instance.RegisterReceiveHandler(NetworkMessageHandlers.ClientSendInputMsg, OnReceivedClientInput);
             }
             else
             {
-                NetworkController.Instance.RegisterReceiveHandler(ServerSendMsg, OnReceivedServerInput);
+                NetworkController.Instance.RegisterReceiveHandler(NetworkMessageHandlers.ServerSendInputMsg, OnReceivedServerInput);
             }
         }
 

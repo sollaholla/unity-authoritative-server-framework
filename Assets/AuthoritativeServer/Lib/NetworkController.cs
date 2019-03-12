@@ -1,7 +1,6 @@
 ﻿#pragma warning disable CS0618 // Type or member is obsolete
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
@@ -15,6 +14,7 @@ namespace AuthoritativeServer
     /// </summary>
     [AddComponentMenu("Autho Server/Network Controller")]
     [ExecuteInEditMode]
+    [DisallowMultipleComponent]
     public class NetworkController : MonoBehaviour
     {
         /// <summary>
@@ -43,17 +43,17 @@ namespace AuthoritativeServer
         /// <summary>
         /// Invoked on the client when connection to the server has been established.
         /// </summary>
-        public static event Action<NetworkConnection> ClientConnectionEstablished;
+        public static event Action<NetworkConnection> ConnectionEstablished;
 
         /// <summary>
         /// Invoked on the client when the local client disconnected from the server.
         /// </summary>
-        public static event Action ClientDisconnected;
+        public static event Action ConnectionTerminated;
 
         /// <summary>
         /// Invoked on the client when the server notifies us of a remote connection.
         /// </summary>
-        public static event Action<NetworkConnection> RemoteConnectionEstablished;
+        public static event Action<NetworkConnection> RemoteConnected;
 
         /// <summary>
         /// Invoked on the client when the server notifies us of a remote disconnection.
@@ -63,7 +63,7 @@ namespace AuthoritativeServer
         /// <summary>
         /// Invoked when the online scene is loaded.
         /// </summary>
-        public static event Action<Scene> OnOnlineSceneLoaded;
+        public static event Action<Scene> OnlineSceneLoaded;
 
         /// <summary>
         /// Invoked on the server when the server has been initialized.
@@ -106,8 +106,9 @@ namespace AuthoritativeServer
 
         #region FIELDS
 
-        private byte m_ReliableChannel = 0;
-        private byte m_UnReliableChannel = 0;
+        public static byte ReliableChannel { get; private set; } = 0;
+        public static byte UnReliableChannel { get; private set; } = 0;
+        public static byte ReliableSequencedChannel { get; private set; } = 0;
         private int m_HostID = -1;
         private byte[] m_ReceiveBuffer;
         private int m_MessageSize = 1024;
@@ -138,7 +139,7 @@ namespace AuthoritativeServer
         /// <summary>
         /// This is true if the <see cref="NetworkController"/> has been initialized.
         /// </summary>
-        public bool IsStarted { get { return NetworkTransport.IsStarted; } }
+        public bool IsStarted { get; private set; }
 
         /// <summary>
         /// True if this <see cref="NetworkController"/> was initialized as the server.
@@ -301,26 +302,24 @@ namespace AuthoritativeServer
             if (IsStarted)
                 return;
 
-            NetworkTransport.Init();
-
-            ConnectionConfig cc = new ConnectionConfig();
-
-            m_ReliableChannel = cc.AddChannel(QosType.ReliableFragmented);
-
-            m_UnReliableChannel = cc.AddChannel(QosType.UnreliableFragmented);
-
-            cc.AcksType = ConnectionAcksType.Acks64;
-
-            cc.SendDelay = m_Settings.m_SendDelay;
-
-            cc.PacketSize = m_Settings.m_PacketSize;
-
-            cc.FragmentSize = m_Settings.m_FragmentSize;
-
-            HostTopology topology = new HostTopology(cc, m_Settings.m_MaxPlayers);
-
             m_ReceiveBuffer = new byte[m_MessageSize];
 
+            NetworkTransport.Init();
+            IsStarted = true;
+
+            ConnectionConfig cc = new ConnectionConfig
+            {
+                AcksType = ConnectionAcksType.Acks128,
+                SendDelay = m_Settings.m_SendDelay,
+                PacketSize = m_Settings.m_PacketSize,
+                FragmentSize = m_Settings.m_FragmentSize
+            };
+
+            ReliableChannel = cc.AddChannel(QosType.ReliableFragmented);
+            UnReliableChannel = cc.AddChannel(QosType.UnreliableFragmented);
+            ReliableSequencedChannel = cc.AddChannel(QosType.ReliableFragmentedSequenced);
+
+            HostTopology topology = new HostTopology(cc, m_Settings.m_MaxPlayers);
             switch (client)
             {
                 case true:
@@ -344,13 +343,11 @@ namespace AuthoritativeServer
             }
 
             IsConnected = true;
-
             IsServer = true;
 
             ServerStarted?.Invoke();
 
             RegisterHandlers();
-
             LoadOnlineScene();
 
             DebugLog("Server started...");
@@ -401,7 +398,6 @@ namespace AuthoritativeServer
                 return;
 
             NetworkEventType type;
-
             do
             {
                 type = NetworkTransport.Receive(
@@ -431,13 +427,13 @@ namespace AuthoritativeServer
                     if ((NetworkError)error != NetworkError.Ok)
                     {
                         DebugLogError("Receive Error: " + (NetworkError)error);
+                        if (!IsServer) Disconnect();
                         break;
                     }
                 }
                 catch(Exception e)
                 {
                     DebugLogError(e);
-                    return;
                 }
             }
             while (type != NetworkEventType.Nothing);
@@ -459,7 +455,7 @@ namespace AuthoritativeServer
                 NetworkWriter writer = GetRemoteConnectWriter(connectionID, false);
                 byte[] data = writer.ToArray();
 
-                remote.Send(m_ReliableChannel, RemoteConnectMsg, data);
+                remote.Send(ReliableSequencedChannel, RemoteConnectMsg, data);
             }
 
             // Send all connected clients to the new connection.
@@ -471,7 +467,7 @@ namespace AuthoritativeServer
                 NetworkWriter writer = GetRemoteConnectWriter(remote.ConnectionID, false);
                 byte[] data = writer.ToArray();
 
-                targetConnection.Send(m_ReliableChannel, RemoteConnectMsg, data);
+                targetConnection.Send(ReliableSequencedChannel, RemoteConnectMsg, data);
             }
         }
 
@@ -490,7 +486,7 @@ namespace AuthoritativeServer
 
             foreach (NetworkConnection connection in m_Connections.Values)
             {
-                connection.Send(m_ReliableChannel, RemoteDisconnectMsg, BitConverter.GetBytes((short)connectionID));
+                connection.Send(ReliableSequencedChannel, RemoteDisconnectMsg, BitConverter.GetBytes((short)connectionID));
             }
         }
 
@@ -503,7 +499,7 @@ namespace AuthoritativeServer
             RegisterReceiveHandler(RemoteDisconnectMsg, OnRemoteDisconnected);
             RegisterReceiveHandler(ClientReadyMsg, OnClientReady);
             Scene = new NetworkScene();
-
+            RemoteProcedures.InitRuntime();
             InitializeHandlers?.Invoke();
         }
 
@@ -538,29 +534,27 @@ namespace AuthoritativeServer
 
             if (scene == m_Settings.m_OnlineScene)
             {
-                OnlineSceneLoaded(scene);
+                OnOnlineSceneLoaded(scene);
 
                 DebugLog("Online scene loaded...");
             }
         }
 
-        private void OnlineSceneLoaded(Scene scene)
+        private void OnOnlineSceneLoaded(Scene scene)
         {
-            OnOnlineSceneLoaded?.Invoke(scene);
+            OnlineSceneLoaded?.Invoke(scene);
 
-            if (IsServer)
-                return;
-
-            SendReadyToServer();
+            if (!IsServer)
+            {
+                SendReadyToServer();
+            }
         }
 
         private void SendReadyToServer()
         {
             byte[] data = BitConverter.GetBytes((short)LocalConnectionID);
-
-            Send(ConnectionID, m_ReliableChannel, ClientReadyMsg, data);
-
-            ClientConnectionEstablished?.Invoke(m_Connections[LocalConnectionID]);
+            Send(ConnectionID, ReliableChannel, ClientReadyMsg, data);
+            ConnectionEstablished?.Invoke(m_Connections[LocalConnectionID]);
         }
 
         #endregion
@@ -613,7 +607,7 @@ namespace AuthoritativeServer
                 DebugLog(string.Format("Client {0} connected from {1}.", connectionID, addr));
 
                 m_Connections[connectionID] = new NetworkConnection(addr, connectionID);
-                m_Connections[connectionID].Send(m_ReliableChannel, RemoteConnectMsg, GetRemoteConnectWriter(connectionID, true).ToArray());
+                m_Connections[connectionID].Send(ReliableSequencedChannel, RemoteConnectMsg, GetRemoteConnectWriter(connectionID, true).ToArray());
             }
         }
 
@@ -648,16 +642,22 @@ namespace AuthoritativeServer
                 if (m_Connections == null)
                     return;
 
-                ServerClientDisconnected?.Invoke(m_Connections[connectionID]);
+                try
+                {
+                    Scene.NotifyClientDisconnect(m_Connections[connectionID]);
+                    ServerClientDisconnected?.Invoke(m_Connections[connectionID]);
+                }
+                catch (Exception e)
+                {
+                    DebugLogError(e);
+                }
 
                 m_Connections.Remove(connectionID);
-
                 BroadcastDisconnection(connectionID);
             }
             else
             {
                 DebugLog(string.Format("Disconnected from server..."));
-
                 Disconnect();
             }
         }
@@ -669,6 +669,7 @@ namespace AuthoritativeServer
         protected virtual void OnClientReady(NetworkWriter writer)
         {
             int connectionID = writer.ReadInt16();
+            Scene.NotifyClientConnect(m_Connections[connectionID]);
             ServerClientConnected?.Invoke(m_Connections[connectionID]);
             BroadcastConnection(connectionID);
         }
@@ -695,7 +696,7 @@ namespace AuthoritativeServer
 
             m_Connections[connectionID] = new NetworkConnection(connectionID);
 
-            RemoteConnectionEstablished?.Invoke(m_Connections[connectionID]);
+            RemoteConnected?.Invoke(m_Connections[connectionID]);
         }
 
         /// <summary>
@@ -708,11 +709,8 @@ namespace AuthoritativeServer
                 return;
 
             int connectionID = writer.ReadInt16();
-
             RemoteDisconnected?.Invoke(m_Connections[connectionID]);
-
             DebugLog(string.Format("Remote {0} disconnected from the server.", connectionID));
-
             m_Connections.Remove(connectionID);
         }
 
@@ -787,13 +785,23 @@ namespace AuthoritativeServer
             if (!IsServer)
                 return;
 
+            if (m_Connections == null)
+                return;
+
             foreach (NetworkConnection connection in m_Connections.Values)
             {
                 connection.Send(channelID, messageID, data);
             }
         }
 
-        public void SendToAllExcluding(byte[] data, short messageID, int connectionToIgnore)
+        /// <summary>
+        /// Sends a message to all connections excluding the ignored connection.
+        /// </summary>
+        /// <param name="data"></param>
+        /// <param name="channel"></param>
+        /// <param name="messageID"></param>
+        /// <param name="connectionToIgnore"></param>
+        public void SendToAllExcluding(byte[] data, byte channel, short messageID, int connectionToIgnore)
         {
             if (!IsServer)
                 return;
@@ -803,7 +811,7 @@ namespace AuthoritativeServer
                 if (connection.ConnectionID == connectionToIgnore)
                     continue;
 
-                connection.Send(m_ReliableChannel, messageID, data);
+                connection.Send(channel, messageID, data);
             }
         }
 
@@ -829,18 +837,44 @@ namespace AuthoritativeServer
         /// </summary>
         public virtual void Disconnect()
         {
+            if (!IsStarted)
+                return;
+
             if (IsServer) ServerStopped?.Invoke();
-            else ClientDisconnected?.Invoke();
+            else ConnectionTerminated?.Invoke();
+
+            m_LastSendSize = 0;
+            m_ReceiveBuffer = null;
             IsConnected = false;
             IsServer = false;
-            NetworkTransport.Shutdown();
+            IsStarted = false;
             m_HostID = -1;
-            m_ReliableChannel = 0;
-            m_UnReliableChannel = 0;
+            ConnectionID = -1;
+            LocalConnectionID = -1;
+            ReliableChannel = 0;
+            UnReliableChannel = 0;
+            ReliableSequencedChannel = 0;
             m_ReceiveHandlers?.Clear();
+            m_ReceiveHandlers = null;
             m_Connections?.Clear();
+            m_Connections = null;
             Scene?.Clear();
-            RemoteProcedures?.ClearBuffer();
+            Scene = null;
+            RemoteProcedures?.Clear();
+
+            ConnectionEstablished = null;
+            ConnectionTerminated = null;
+            ServerClientConnected = null;
+            ServerClientDisconnected = null;
+            RemoteConnected = null;
+            RemoteDisconnected = null;
+            OnlineSceneLoaded = null;
+            ServerStarted = null;
+            ServerStopped = null;
+            InitializeHandlers = null;
+            Log = null;
+
+            NetworkTransport.Shutdown();
             SceneManager.LoadScene(m_Settings.m_OfflineScene.m_SceneName);
         }
 

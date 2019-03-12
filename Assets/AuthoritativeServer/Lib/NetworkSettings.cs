@@ -36,7 +36,6 @@ namespace AuthoritativeServer
 
         [Header("Objects")]
         public GameObject m_PlayerObject;
-        public List<GameObject> m_RegisteredObjects;
 
         [HideInInspector] public NetworkRemoteProcedures m_RemoteProcedures;
     }

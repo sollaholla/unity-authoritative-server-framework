@@ -36,8 +36,8 @@ namespace AuthoritativeServer
             m_ClientConnectButton.onClick.AddListener(OnClientConnect);
             m_ServerConnectButton.onClick.AddListener(OnServerConnect);
 
-            NetworkController.ClientConnectionEstablished += OnConnectionEstablished;
-            NetworkController.ClientDisconnected += OnClientDisconnected;
+            NetworkController.ConnectionEstablished += OnConnectionEstablished;
+            NetworkController.ConnectionTerminated += OnClientDisconnected;
             NetworkController.ServerStarted += OnServerStarted;
             NetworkController.ServerStopped += OnServerStopped;
         }
@@ -47,8 +47,8 @@ namespace AuthoritativeServer
             m_ClientConnectButton.onClick.RemoveListener(OnClientConnect);
             m_ServerConnectButton.onClick.RemoveListener(OnServerConnect);
 
-            NetworkController.ClientConnectionEstablished -= OnConnectionEstablished;
-            NetworkController.ClientDisconnected -= OnClientDisconnected;
+            NetworkController.ConnectionEstablished -= OnConnectionEstablished;
+            NetworkController.ConnectionTerminated -= OnClientDisconnected;
             NetworkController.ServerStarted -= OnServerStarted;
             NetworkController.ServerStopped -= OnServerStopped;
         }

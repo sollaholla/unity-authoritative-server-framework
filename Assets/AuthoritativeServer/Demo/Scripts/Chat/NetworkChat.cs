@@ -1,4 +1,5 @@
-﻿using TMPro;
+﻿using System;
+using TMPro;
 
 using UnityEngine;
 using UnityEngine.UI;
@@ -72,9 +73,11 @@ namespace AuthoritativeServer.Demo
 
             NetworkWriter writer = new NetworkWriter();
             writer.Write("User " + NetworkController.Instance.LocalConnectionID);
-            writer.Write(message);
+            writer.Write(message + Environment.NewLine);
 
-            NetworkController.Instance.Send(NetworkController.Instance.ConnectionID, 0, ChatMessage, writer.ToArray());
+            NetworkController.Instance.Send(NetworkController.Instance.ConnectionID, NetworkController.ReliableChannel, ChatMessage, writer.ToArray());
+
+            m_ChatInputField.text = string.Empty;
         }
 
         private static void RegisterHandlers()
@@ -91,7 +94,7 @@ namespace AuthoritativeServer.Demo
         {
             if (IsServer)
             {
-                NetworkController.Instance.SendToAll(0, ChatMessage, writer.ToArray());
+                NetworkController.Instance.SendToAll(NetworkController.ReliableChannel, ChatMessage, writer.ToArray());
                 return;
             }
 

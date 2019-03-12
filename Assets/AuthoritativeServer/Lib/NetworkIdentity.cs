@@ -1,7 +1,12 @@
-﻿using UnityEngine;
+﻿using System;
+using System.Collections.Generic;
+using AuthoritativeServer.Attributes;
+using UnityEngine;
 
 namespace AuthoritativeServer
 {
+    [AddComponentMenu("Autho Server/Network Identity")]
+    [DisallowMultipleComponent]
     public class NetworkIdentity : MonoBehaviour
     {
         #region FIELDS
@@ -30,7 +35,7 @@ namespace AuthoritativeServer
         /// <summary>
         /// True if we're the owner of this object.
         /// </summary>
-        public bool IsOwner { get { return NetworkController.Instance?.LocalConnectionID == OwnerConnection?.ConnectionID; } }
+        public bool IsOwner { get { return NetworkController.Instance != null && NetworkController.Instance?.LocalConnectionID == OwnerConnection?.ConnectionID; } }
 
         /// <summary>
         /// The network behaviours attached to this object.
@@ -49,7 +54,16 @@ namespace AuthoritativeServer
         #region PUBLIC
 
         /// <summary>
-        /// Executed when this object is intialized by the <see cref="NetworkController"/>.
+        /// The owner connection.
+        /// </summary>
+        /// <param name="connection"></param>
+        public void SetOwner(NetworkConnection connection)
+        {
+            OwnerConnection = connection;
+        }
+
+        /// <summary>
+        /// Executed when this object is intialized by the <see cref="NetworkController"/>. Sets the owner connection, instance ID, and calls initialization functions on <see cref="NetworkBehaviour"/>s.
         /// </summary>
         /// <param name="instanceId">The object's instance ID.</param>
         /// <param name="owner">The owner connection.</param>
@@ -73,6 +87,26 @@ namespace AuthoritativeServer
                 {
                     b.OnOwnerInitialize();
                 }
+            }
+        }
+
+        public byte[] OnSerialize(NetworkWriter info)
+        {
+            List<byte> allBytes = new List<byte>();
+            foreach (NetworkBehaviour behaviour in NetworkBehaviours)
+            {
+                byte[] data = behaviour.OnSerialize();
+                if (data != null)
+                    allBytes.AddRange(data);
+            }
+            return allBytes.ToArray();
+        }
+
+        public void OnDeserialize(byte[] data)
+        {
+            foreach (NetworkBehaviour behaviour in NetworkBehaviours)
+            {
+                behaviour.OnDeserialize(data);
             }
         }
 

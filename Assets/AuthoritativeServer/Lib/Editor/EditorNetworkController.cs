@@ -1,7 +1,7 @@
 ﻿using UnityEditor;
 using UnityEngine;
 
-namespace AuthoritativeServer.Editor
+namespace AuthoritativeServer.Editors
 {
     [InitializeOnLoad]
     public static class EditorNetworkController

@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4922331915b71c649a77015f5fc1272e, type: 3}
+  m_Name: Craft Cube 2
+  m_EditorClassIdentifier: 
+  m_BlueprintName: Craft Cube 2
+  m_Inputs:
+  - m_Item: {fileID: 1891016568386265381, guid: deb1178159e793f47af0eed15d75c25d,
+      type: 3}
+    m_RequiredAmount: 1
+  - m_Item: {fileID: 21991338881322868, guid: 8281064c82d1d6f4785ecbc2b1c80feb, type: 3}
+    m_RequiredAmount: 1
+  m_Output: {fileID: 4462584737412588570, guid: 2c166130226117a4c97ecbd0161103cd,
+    type: 3}

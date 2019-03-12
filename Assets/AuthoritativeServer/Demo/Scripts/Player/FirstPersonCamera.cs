@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 namespace AuthoritativeServer.Demo
 {
@@ -17,6 +18,10 @@ namespace AuthoritativeServer.Demo
         private float m_SensitivityY = 1f;
         [SerializeField]
         private float m_CrouchLerpSpeed = 10f;
+        [SerializeField, Range(0, 1f)]
+        private float m_HeadBobIntensity = 0.5f;
+        [SerializeField]
+        private bool m_LockCursor;
 
         #endregion
 
@@ -33,6 +38,10 @@ namespace AuthoritativeServer.Demo
         private float m_CurrentY;
 
         private float m_InitialHeadY;
+        private bool m_UseInput = true;
+
+        private Vector3 m_HeadBob;
+        private Vector3 m_HeadTilt;
 
         #endregion
 
@@ -46,12 +55,25 @@ namespace AuthoritativeServer.Demo
 
             m_CurrentX = m_PlayerInput.transform.eulerAngles.y;
             m_InitialHeadY = transform.localPosition.y;
+
+            if (m_LockCursor)
+                Cursor.lockState = CursorLockMode.Locked;
+        }
+
+        private void OnEnable()
+        {
+            UiWindow.InputStateChanged += OnInputStateChanged;
+        }
+
+        private void OnDisable()
+        {
+            UiWindow.InputStateChanged -= OnInputStateChanged;
         }
 
         private void Update()
         {
-            m_XInput = Input.GetAxis("Mouse X");
-            m_YInput = Input.GetAxis("Mouse Y");
+            m_XInput = m_UseInput ? Input.GetAxis("Mouse X") : 0;
+            m_YInput = m_UseInput ? Input.GetAxis("Mouse Y") : 0;
 
             m_CurrentX += m_XInput * (360f * m_SensitivityX) * Time.fixedDeltaTime;
             m_CurrentY -= m_YInput * (360f * m_SensitivityY) * Time.fixedDeltaTime;
@@ -61,13 +83,31 @@ namespace AuthoritativeServer.Demo
 
         private void FixedUpdate()
         {
+            CalculateHeadBob();
+
             transform.rotation = Quaternion.Euler(m_CurrentY, m_CurrentX, 0);
-            transform.localPosition = Vector3.Lerp(transform.localPosition, GetOffset(), Time.deltaTime * m_CrouchLerpSpeed);
+            transform.localPosition = Vector3.Lerp(transform.localPosition, GetOffset(), Time.deltaTime * m_CrouchLerpSpeed) + m_HeadBob;
+
+            if (m_Camera.transform != transform)
+            {
+                m_Camera.transform.localRotation = Quaternion.Lerp(m_Camera.transform.localRotation, Quaternion.Euler(m_HeadTilt), Time.deltaTime * 5f);
+            }
         }
 
         #endregion
 
         #region PRIVATE
+
+        private void OnInputStateChanged(bool useInput)
+        {
+            m_UseInput = useInput;
+
+            if (m_LockCursor)
+            {
+                if (useInput) Cursor.lockState = CursorLockMode.Locked;
+                else Cursor.lockState = CursorLockMode.None;
+            }
+        }
 
         private Vector3 GetOffset()
         {
@@ -77,6 +117,19 @@ namespace AuthoritativeServer.Demo
             }
 
             return new Vector3(0, m_InitialHeadY, 0);
+        }
+
+        protected virtual void CalculateHeadBob()
+        {
+            float delta = m_CharacterMotor.isGrounded ? m_CharacterMotor.velocity.normalized.magnitude : 0;
+
+            float yValue = Mathf.PingPong(Time.time * m_CharacterMotor.height * 3.5f * delta, 1f) * 0.025f;
+            m_HeadBob.y = -yValue;
+            m_HeadBob.y *= m_HeadBobIntensity;
+
+            m_HeadTilt.x = (Mathf.PerlinNoise(0, Time.time * 3f * m_CharacterMotor.height * 0.5f) - 0.5f) * 10f;
+            m_HeadTilt *= delta * m_CharacterMotor.height * 0.5f;
+            m_HeadTilt *= m_HeadBobIntensity;
         }
 
         #endregion

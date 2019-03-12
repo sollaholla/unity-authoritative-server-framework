@@ -1,4 +1,5 @@
 ﻿using AuthoritativeServer.Attributes;
+using static AuthoritativeServer.NetworkMessageHandlers;
 
 using System;
 using System.Collections.Generic;
@@ -70,11 +71,6 @@ namespace AuthoritativeServer
     [System.Serializable]
     public class NetworkRemoteProcedures
     {
-        /// <summary>
-        /// The message ID used for executing a server only RPC.
-        /// </summary>
-        public const short RPCMsg = -7;
-
         #region FIELDS
 
         [SerializeField]
@@ -83,58 +79,7 @@ namespace AuthoritativeServer
         private Dictionary<int, HashSet<NetworkWriter>> m_BufferedMessages;
 
         #endregion
-
-        public NetworkRemoteProcedures()
-        {
-            NetworkController.InitializeHandlers += OnInitializeHandlers;
-            NetworkController.ServerClientConnected += OnClientConnectedToServer;
-            NetworkScene.DestroyedGameObject += OnDestroyedObject;
-            NetworkScene.CreatedGameObject += OnCreatedObject;
-        }
-
-        /// <summary>
-        /// Executed in edit mode when scripts are reloaded.
-        /// </summary>
-        public void InitializeRPCs()
-        {
-#if UNITY_EDITOR
-            if (m_Methods == null)
-                m_Methods = new List<RPCMethodInfo>(); 
-
-            m_Methods.Clear();
-
-            Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
-
-            foreach (Assembly assembly in assemblies)
-            {
-                Type[] types = assembly.GetTypes();
-
-                foreach (Type type in types) 
-                {
-                    if (!type.IsSubclassOf(typeof(NetworkBehaviour)) || !type.IsPublic || type.IsAbstract)
-                        continue;
-
-                    MethodInfo[] methods = type.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-
-                    foreach (MethodInfo method in methods)
-                    {
-                        IEnumerable<Attribute> attributes = method.GetCustomAttributes();
-
-                        foreach (Attribute att in attributes)
-                        {
-                            if (att is NetworkRPCAttribute rpc)
-                            {
-                                RPCMethodInfo rpcMethod = new RPCMethodInfo(type.Name, method.Name, method.GetParameters()?.Length ?? 0);
-                                m_Methods.Add(rpcMethod);
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-#endif
-        }
-
+        
         #region PROPERTIES
 
         /// <summary>
@@ -146,9 +91,18 @@ namespace AuthoritativeServer
 
         #region PRIVATE
 
-        private void OnInitializeHandlers()
+        private void RegisterEvents()
         {
-            NetworkController.Instance.RegisterReceiveHandler(RPCMsg, OnRPC);
+            NetworkController.ServerClientConnected += OnClientConnectedToServer;
+            NetworkScene.DestroyedGameObject += OnDestroyedObject;
+            NetworkScene.CreatedGameObject += OnCreatedObject;
+        }
+
+        private void UnregisterEvents()
+        {
+            NetworkController.ServerClientConnected -= OnClientConnectedToServer;
+            NetworkScene.DestroyedGameObject -= OnDestroyedObject;
+            NetworkScene.CreatedGameObject -= OnCreatedObject;
         }
 
         private void OnCreatedObject(NetworkIdentity identity)
@@ -182,7 +136,7 @@ namespace AuthoritativeServer
             {
                 foreach (NetworkWriter bufferedRPC in bufferedRPCs)
                 {
-                    conn.Send(0, RPCMsg, bufferedRPC.ToArray());
+                    conn.Send(NetworkController.ReliableSequencedChannel, RPCMsg, bufferedRPC.ToArray());
                 }
             }
         }
@@ -222,18 +176,18 @@ namespace AuthoritativeServer
                 switch (type)
                 {
                     case RPCType.All:
-                        NetworkController.Instance.SendToAll(0, RPCMsg, writer.ToArray());
+                        NetworkController.Instance.SendToAll(NetworkController.ReliableSequencedChannel, RPCMsg, writer.ToArray());
                         return;
                     case RPCType.AllBuffered:
-                        NetworkController.Instance.SendToAll(0, RPCMsg, writer.ToArray());
+                        NetworkController.Instance.SendToAll(NetworkController.ReliableSequencedChannel, RPCMsg, writer.ToArray());
                         InitBuffer(instanceID);
                         m_BufferedMessages[instanceID].Add(new NetworkWriter(writer.ToArray()));
                         return;
                     case RPCType.Others:
-                        NetworkController.Instance.SendToAllExcluding(writer.ToArray(), RPCMsg, connection);
+                        NetworkController.Instance.SendToAllExcluding(writer.ToArray(), NetworkController.ReliableSequencedChannel, RPCMsg, connection);
                         return;
                     case RPCType.OthersBuffered:
-                        NetworkController.Instance.SendToAllExcluding(writer.ToArray(), RPCMsg, connection);
+                        NetworkController.Instance.SendToAllExcluding(writer.ToArray(), NetworkController.ReliableSequencedChannel, RPCMsg, connection);
                         InitBuffer(instanceID);
                         m_BufferedMessages[instanceID].Add(new NetworkWriter(writer.ToArray()));
                         return;
@@ -378,6 +332,55 @@ namespace AuthoritativeServer
         #region PUBLIC
 
         /// <summary>
+        /// Executed in edit mode when scripts are reloaded.
+        /// </summary>
+        public void InitializeRPCs()
+        {
+#if UNITY_EDITOR
+            if (m_Methods == null)
+                m_Methods = new List<RPCMethodInfo>();
+
+            m_Methods.Clear();
+
+            Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
+
+            foreach (Assembly assembly in assemblies)
+            {
+                Type[] types = assembly.GetTypes();
+
+                foreach (Type type in types)
+                {
+                    if (!type.IsSubclassOf(typeof(NetworkBehaviour)) || !type.IsPublic || type.IsAbstract)
+                        continue;
+
+                    MethodInfo[] methods = type.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+                    foreach (MethodInfo method in methods)
+                    {
+                        IEnumerable<Attribute> attributes = method.GetCustomAttributes();
+
+                        foreach (Attribute att in attributes)
+                        {
+                            if (att is NetworkRPCAttribute rpc)
+                            {
+                                RPCMethodInfo rpcMethod = new RPCMethodInfo(type.Name, method.Name, method.GetParameters()?.Length ?? 0);
+                                m_Methods.Add(rpcMethod);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+#endif
+        }
+
+        public void InitRuntime()
+        {
+            NetworkController.Instance.RegisterReceiveHandler(RPCMsg, OnRPC);
+            RegisterEvents();
+        }
+
+        /// <summary>
         /// Execute a remote procedure.
         /// </summary>
         /// <param name="netInstanceID">The <see cref="NetworkIdentity.InstanceID"/>.</param>
@@ -419,14 +422,14 @@ namespace AuthoritativeServer
             {
                 case RPCType.All:
                     {
-                        if (NetworkController.Instance.IsServer) NetworkController.Instance.SendToAll(0, RPCMsg, data);
-                        else NetworkController.Instance.Send(connectionID, 0, RPCMsg, data);
+                        if (NetworkController.Instance.IsServer) NetworkController.Instance.SendToAll(NetworkController.ReliableSequencedChannel, RPCMsg, data);
+                        else NetworkController.Instance.Send(connectionID, NetworkController.ReliableSequencedChannel, RPCMsg, data);
                         break;
                     }
                 case RPCType.Others:
                     {
-                        if (NetworkController.Instance.IsServer) NetworkController.Instance.SendToAll(0, RPCMsg, data);
-                        else NetworkController.Instance.Send(connectionID, 0, RPCMsg, data);
+                        if (NetworkController.Instance.IsServer) NetworkController.Instance.SendToAll(NetworkController.ReliableSequencedChannel, RPCMsg, data);
+                        else NetworkController.Instance.Send(connectionID, NetworkController.ReliableSequencedChannel, RPCMsg, data);
                         break;
                     }
                 case RPCType.ServerOnly:
@@ -436,7 +439,7 @@ namespace AuthoritativeServer
                             NetworkBehaviour networkBehaviour = identity.GetComponent<NetworkBehaviour>();
                             networkBehaviour.InvokeRPC(function, parameters);
                         }
-                        else NetworkController.Instance.Send(connectionID, 0, RPCMsg, data);
+                        else NetworkController.Instance.Send(connectionID, NetworkController.ReliableSequencedChannel, RPCMsg, data);
                         break;
                     }
                 case RPCType.AllBuffered:
@@ -445,9 +448,9 @@ namespace AuthoritativeServer
                         {
                             InitBuffer(identity.InstanceID);
                             m_BufferedMessages[identity.InstanceID].Add(new NetworkWriter(writer.ToArray()));
-                            NetworkController.Instance.SendToAll(0, RPCMsg, data);
+                            NetworkController.Instance.SendToAll(NetworkController.ReliableSequencedChannel, RPCMsg, data);
                         }
-                        else NetworkController.Instance.Send(connectionID, 0, RPCMsg, data);
+                        else NetworkController.Instance.Send(connectionID, NetworkController.ReliableSequencedChannel, RPCMsg, data);
                         break;
                     }
                 case RPCType.OthersBuffered:
@@ -456,9 +459,9 @@ namespace AuthoritativeServer
                         {
                             InitBuffer(identity.InstanceID);
                             m_BufferedMessages[identity.InstanceID].Add(new NetworkWriter(writer.ToArray()));
-                            NetworkController.Instance.SendToAll(0, RPCMsg, data);
+                            NetworkController.Instance.SendToAll(NetworkController.ReliableSequencedChannel, RPCMsg, data);
                         }
-                        else NetworkController.Instance.Send(connectionID, 0, RPCMsg, data);
+                        else NetworkController.Instance.Send(connectionID, NetworkController.ReliableSequencedChannel, RPCMsg, data);
                         break;
                     }
                 case RPCType.Target:
@@ -467,7 +470,7 @@ namespace AuthoritativeServer
                         {
                             NetworkConnection connection = (NetworkConnection)parameters[0];
                             if (connection != null)
-                                connection.Send(0, RPCMsg, data);
+                                connection.Send(NetworkController.ReliableSequencedChannel, RPCMsg, data);
                         }
                         break;
                     }
@@ -477,8 +480,9 @@ namespace AuthoritativeServer
         /// <summary>
         /// Clears the runtime RPC buffer.
         /// </summary>
-        public void ClearBuffer()
+        public void Clear()
         {
+            UnregisterEvents();
             m_BufferedMessages?.Clear();
         }
 

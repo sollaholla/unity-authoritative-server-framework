@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 namespace AuthoritativeServer.Demo
 {
@@ -10,6 +11,8 @@ namespace AuthoritativeServer.Demo
     public class CharacterMotor : MonoBehaviour
     {
         #region INSPECTOR
+
+        public event Action<Collision> CharacterCollision;
 
         [Header("Movement")]
         [SerializeField]
@@ -27,6 +30,7 @@ namespace AuthoritativeServer.Demo
 
         private CharacterController m_CharacterController;
         private Animator m_Animator;
+        private StatusEffect m_Stats;
 
         private Vector3 m_CurrentGravity;
         private Vector3 m_HorizontalVelocity;
@@ -52,6 +56,26 @@ namespace AuthoritativeServer.Demo
         /// </summary>
         public bool isCrouching { get; private set; }
 
+        /// <summary>
+        /// The character velocity.
+        /// </summary>
+        public Vector3 velocity { get { return m_Velocity; } }
+
+        /// <summary>
+        /// The characters height.
+        /// </summary>
+        public float height { get { return m_CharacterController.height; } }
+
+        /// <summary>
+        /// The horizontal velocity of the character in air.
+        /// </summary>
+        public Vector3 horizontalVelocity { get { return m_HorizontalVelocity; } }
+
+        /// <summary>
+        /// The gravitational acceleration when falling.
+        /// </summary>
+        public float gravitationalAccel { get { return m_CurrentGravity.y; } }
+
         #endregion
 
         #region UNITY
@@ -61,6 +85,8 @@ namespace AuthoritativeServer.Demo
             m_CharacterController = GetComponent<CharacterController>();
 
             m_Animator = GetComponent<Animator>();
+
+            m_Stats = GetComponent<StatusEffect>();
 
             m_LastPosition = transform.position;
         }
@@ -72,6 +98,11 @@ namespace AuthoritativeServer.Demo
             m_Velocity /= Time.fixedDeltaTime;
 
             m_LastPosition = transform.position;
+        }
+
+        private void OnCollisionEnter(Collision collision)
+        {
+            CharacterCollision?.Invoke(collision);
         }
 
         #endregion
@@ -100,7 +131,7 @@ namespace AuthoritativeServer.Demo
 
             if (isGrounded)
             {
-                Vector3 inputMotion = CalculateInputMotion(input);
+                Vector3 inputMotion = CalculateInputMotion(input) * m_Stats.GetValue("Speed", 1f);
 
                 motion += inputMotion;
             }
@@ -119,11 +150,13 @@ namespace AuthoritativeServer.Demo
         /// </summary>
         /// <param name="position"></param>
         /// <param name="rotation"></param>
-        public void Teleport(Vector3 position, Quaternion rotation)
+        public void ForceSimulate(Vector3 position, Quaternion rotation, Vector3 horiVelocity, float grav)
         {
             Vector3 diff = position - transform.position;
             m_CharacterController.Move(diff);
             transform.rotation = rotation;
+            m_HorizontalVelocity = horiVelocity;
+            m_CurrentGravity = new Vector3(0, grav, 0);
         }
 
         /// <summary>
@@ -164,15 +197,11 @@ namespace AuthoritativeServer.Demo
         public void Animate()
         {
             Vector3 relativeVelocity = transform.InverseTransformDirection(m_Velocity);
-
             float speed = isCrouching ? m_DefaultMoveSpeed * 0.5f : m_DefaultMoveSpeed;
 
             m_Animator.SetFloat("InputX", relativeVelocity.x / speed, 0.1f, Time.fixedDeltaTime);
-
             m_Animator.SetFloat("InputY", relativeVelocity.z / speed, 0.1f, Time.fixedDeltaTime);
-
             m_Animator.SetBool("Grounded", isGrounded);
-
             m_Animator.SetBool("Crouching", isCrouching);
         }
 

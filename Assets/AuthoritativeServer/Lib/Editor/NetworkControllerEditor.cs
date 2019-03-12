@@ -1,6 +1,6 @@
 ﻿using UnityEditor;
 
-namespace AuthoritativeServer.Editor
+namespace AuthoritativeServer.Editors
 {
     [CustomEditor(typeof(NetworkController))]
     public class NetworkControllerEditor : UnityEditor.Editor
