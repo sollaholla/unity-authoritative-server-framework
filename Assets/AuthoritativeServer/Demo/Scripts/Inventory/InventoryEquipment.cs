@@ -110,27 +110,25 @@ namespace AuthoritativeServer.Demo
 
         private void OnItemAdded(ItemCollection collection, InventoryItem item, int slot)
         {
-            if (ExecuteInventoryProcedure<EquippableInventoryItem>(collection, m_EquipmentCollection, item, nameof(EquipEquippable)))
-            {
-                m_Equippables.Add(item as EquippableInventoryItem);
-            }
-
             if (ExecuteInventoryProcedure<WeaponInventoryItem>(collection, m_WeaponCollection, item, nameof(EquipWeapon)))
             {
                 m_Weapons.Add(item as WeaponInventoryItem);
+            }
+            else if (ExecuteInventoryProcedure<EquippableInventoryItem>(collection, m_EquipmentCollection, item, nameof(EquipEquippable)))
+            {
+                m_Equippables.Add(item as EquippableInventoryItem);
             }
         }
 
         private void OnItemRemoved(ItemCollection oldCollection, InventoryItem item, int oldSlot)
         {
-            if (ExecuteInventoryProcedure<EquippableInventoryItem>(oldCollection, m_EquipmentCollection, item, nameof(UnequipEquippable)))
-            {
-                m_Equippables.Remove(item as EquippableInventoryItem);
-            }
-
             if (ExecuteInventoryProcedure<WeaponInventoryItem>(oldCollection, m_WeaponCollection, item, nameof(UnequipWeapon)))
             {
                 m_Weapons.Remove(item as WeaponInventoryItem);
+            }
+            else if (ExecuteInventoryProcedure<EquippableInventoryItem>(oldCollection, m_EquipmentCollection, item, nameof(UnequipEquippable)))
+            {
+                m_Equippables.Remove(item as EquippableInventoryItem);
             }
         }
 

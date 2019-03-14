@@ -387,14 +387,28 @@ namespace AuthoritativeServer
                         conn.Send(NetworkController.ReliableSequencedChannel, CreatePlayerMsg, writer.ToArray());
                     }
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
                     Debug.LogError(ex);
                 }
             }
 
-            GameObject player = NetworkCreatePlayer(conn.ConnectionID, Vector3.zero, Vector3.zero);
+            GetPlayerSpawn(out Vector3 spawnPosition, out Vector3 spawnRotation);
+            GameObject player = NetworkCreatePlayer(conn.ConnectionID, spawnPosition, spawnRotation);
             NetworkController.Instance.GetConnection(conn.ConnectionID).SetConnectionObject(player);
+        }
+
+        private static void GetPlayerSpawn(out Vector3 spawnPosition, out Vector3 spawnRotation)
+        {
+            NetworkSpawnPoint[] spawnPoints = Object.FindObjectsOfType<NetworkSpawnPoint>();
+            spawnPosition = Vector3.zero;
+            spawnRotation = Vector3.zero;
+            if (spawnPoints.Length > 0)
+            {
+                NetworkSpawnPoint randomSpawn = spawnPoints[UnityEngine.Random.Range(0, spawnPoints.Length)];
+                spawnPosition = randomSpawn.transform.position;
+                spawnRotation = randomSpawn.transform.rotation.eulerAngles;
+            }
         }
 
         private void OnDestroyPlayer(NetworkConnection conn)

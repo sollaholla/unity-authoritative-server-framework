@@ -57,6 +57,38 @@ namespace AuthoritativeServer
             EditorUpdate();
         }
 
+        #endregion
+
+        #region PRIVATE
+
+        private void Initialize()
+        {
+            if (Application.isPlaying)
+            {
+                if (m_SceneIdentities == null)
+                    return;
+
+                if (NetworkController.Instance.IsServer)
+                {
+                    for (int i = 0; i < m_SceneIdentities.Count; i++)
+                    {
+                        NetworkIdentity identity = m_SceneIdentities[i];
+                        identity.gameObject.name = m_SceneIdentities[i].PrefabName;
+                        m_NetworkIdentities[i] = identity;
+                        identity.OnInitialize(i, null);
+                        NetworkController.Instance.Scene.RegisterObjectAsSpawned(identity.gameObject);
+                    }
+                }
+                else
+                {
+                    for (int i = 0; i < m_SceneIdentities.Count; i++)
+                        Destroy(m_SceneIdentities[i].NetworkIdentity.gameObject);
+                    m_SceneIdentities?.Clear();
+                    m_SceneIdentities = null;
+                }
+            }
+        }
+
         private void EditorUpdate()
         {
 #if UNITY_EDITOR
@@ -85,35 +117,6 @@ namespace AuthoritativeServer
                     DestroyImmediate(gameObject);
             }
 #endif
-        }
-
-        #endregion
-
-        #region PRIVATE
-
-        private void Initialize()
-        {
-            if (Application.isPlaying)
-            {
-                if (NetworkController.Instance.IsServer)
-                {
-                    for (int i = 0; i < m_SceneIdentities.Count; i++)
-                    {
-                        NetworkIdentity identity = m_SceneIdentities[i];
-                        identity.gameObject.name = m_SceneIdentities[i].PrefabName;
-                        m_NetworkIdentities[i] = identity;
-                        identity.OnInitialize(i, null);
-                        NetworkController.Instance.Scene.RegisterObjectAsSpawned(identity.gameObject);
-                    }
-                }
-                else
-                {
-                    for (int i = 0; i < m_SceneIdentities.Count; i++)
-                        Destroy(m_SceneIdentities[i].NetworkIdentity.gameObject);
-                    m_SceneIdentities?.Clear();
-                    m_SceneIdentities = null;
-                }
-            }
         }
 
         #endregion
